@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json          # valida JSONs (útil por los configs de mlflow)
+      - id: check-toml          # valida pyproject.toml
+      - id: debug-statements    # detecta breakpoint() y pdb olvidados
+      - id: check-merge-conflict # detecta <<<< markers sin resolver
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks  # detecta secrets, API keys, tokens commiteados
+
+#  - repo: https://github.com/nbQA-dev/nbQA
+#    rev: 1.9.1
+#    hooks:
+#      - id: nbqa-ruff  # lintea notebooks .ipynb con ruff
