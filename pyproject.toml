@@ -24,3 +24,23 @@ dependencies = [
     "retry-requests>=2.0.0",
     "setuptools>=68",
 ]
+
+[tool.uv]
+managed = true
+
+[tool.ruff]
+src = ["src"]
+line-length = 88
+target-version = "py311"
+exclude = [
+    "notebooks",
+    "**/*.ipynb"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # Errores, Pyflakes, isort
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.4",
+]
