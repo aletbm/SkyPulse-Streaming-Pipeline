@@ -1,0 +1,6 @@
+name: skypulse-pipeline
+schedule: "*/15 * * * *"  # every 15 minutes
+start_date: "2026-01-01"
+
+default_parameters:
+  connection: supabase

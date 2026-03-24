@@ -5,7 +5,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
-
+import psycopg2
+from psycopg2.extras import execute_values
+from datetime import datetime
+import time
 from logger import get_logger
 from models.flight import flight_deserializer
 
@@ -18,7 +21,29 @@ SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC_NAME = os.getenv("TOPIC_FLIGHTS", "flight-feeds")
 GROUP_ID = "flights"
 
+BATCH_SIZE = 9000
+FLUSH_INTERVAL = 10
+
+POSTGRES_HOST = os.getenv("SUPABASE_HOST", "localhost")
+POSTGRES_PORT = os.getenv("SUPABASE_PORT", "5432")
+POSTGRES_USER = os.getenv("SUPABASE_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("SUPABASE_PASSWORD", "postgres")
+POSTGRES_DATABASE = os.getenv("SUPABASE_DATABASE", "postgres")
+
 log = get_logger(__name__)
+
+
+def get_connection():
+    conn = psycopg2.connect(
+        host=POSTGRES_HOST,
+        port=POSTGRES_PORT,
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD,
+        database=POSTGRES_DATABASE,
+        sslmode="require",
+    )
+    conn.autocommit = True
+    return conn
 
 
 def build_consumer() -> KafkaConsumer:
@@ -31,24 +56,112 @@ def build_consumer() -> KafkaConsumer:
     )
 
 
+def insert_batch(cursor, records):
+    # Create in Supabase before running:
+    # CREATE TABLE flights (
+    #     icao24 TEXT PRIMARY KEY,
+    #     callsign TEXT,
+    #     origin_country TEXT,
+    #     time_position TIMESTAMP,
+    #     last_contact TIMESTAMP,
+    #     longitude DOUBLE PRECISION,
+    #     latitude DOUBLE PRECISION,
+    #     baro_altitude DOUBLE PRECISION,
+    #     on_ground BOOLEAN,
+    #     velocity DOUBLE PRECISION,
+    #     true_track DOUBLE PRECISION,
+    #     category INTEGER
+    # );
+
+    query = """
+    INSERT INTO flights
+    (icao24, callsign, origin_country, time_position, last_contact,
+     longitude, latitude, baro_altitude, on_ground,
+     velocity, true_track, category)
+    VALUES %s
+    ON CONFLICT (icao24) DO UPDATE SET
+        callsign = EXCLUDED.callsign,
+        origin_country = EXCLUDED.origin_country,
+        time_position = EXCLUDED.time_position,
+        last_contact = EXCLUDED.last_contact,
+        longitude = EXCLUDED.longitude,
+        latitude = EXCLUDED.latitude,
+        baro_altitude = EXCLUDED.baro_altitude,
+        on_ground = EXCLUDED.on_ground,
+        velocity = EXCLUDED.velocity,
+        true_track = EXCLUDED.true_track,
+        category = EXCLUDED.category
+    """
+
+    execute_values(cursor, query, records)
+    return
+
+
+def get_record(flight):
+    return (
+        flight.icao24,
+        flight.callsign,
+        flight.origin_country,
+        datetime.fromtimestamp(flight.time_position) if flight.time_position else None,
+        datetime.fromtimestamp(flight.last_contact) if flight.last_contact else None,
+        flight.longitude,
+        flight.latitude,
+        flight.baro_altitude,
+        flight.on_ground,
+        flight.velocity,
+        flight.true_track,
+        flight.category,
+    )
+
+
 def run():
     log.info(f"connecting to topic: {TOPIC_NAME}")
+
+    conn = get_connection()
+    cur = conn.cursor()
 
     consumer = build_consumer()
     count = 0
 
-    try:
-        for message in consumer:
-            flight = message.value
+    buffer = []
+    last_message_time = time.time()
 
-            if flight is None:
-                log.warning(f"skipping malformed message at offset {message.offset}")
+    try:
+        while True:
+            msg_pack = consumer.poll(timeout_ms=1000)
+
+            # No messages → evaluate flush
+            if not msg_pack:
+                if buffer and (time.time() - last_message_time > FLUSH_INTERVAL):
+                    log.info(f"flush by timeout — inserting {len(buffer)} records")
+                    insert_batch(cur, buffer)
+                    buffer.clear()
                 continue
 
-            count += 1
-            log.info(
-                f"[{count}] {flight.callsign or 'N/A'} | {flight.origin_country} | lat={flight.latitude} lon={flight.longitude} alt={flight.baro_altitude}m"
-            )
+            # There are messages
+            for tp, messages in msg_pack.items():
+                for message in messages:
+                    flight = message.value
+
+                    if flight is None:
+                        log.warning(
+                            f"skipping malformed message at offset {message.offset}"
+                        )
+                        continue
+
+                    record = get_record(flight)
+                    buffer.append(record)
+                    last_message_time = time.time()
+
+                    if len(buffer) >= BATCH_SIZE:
+                        log.info(f"flush by size — inserting {len(buffer)} records")
+                        insert_batch(cur, buffer)
+                        buffer.clear()
+
+                    count += 1
+                    log.info(
+                        f"[{count}] {flight.callsign or 'N/A'} | {flight.origin_country} | lat={flight.latitude} lon={flight.longitude} alt={flight.baro_altitude}m"
+                    )
 
     except KafkaError as e:
         log.error(f"kafka error: {e}")
@@ -56,6 +169,8 @@ def run():
         log.info("stopped by user")
     finally:
         consumer.close()
+        cur.close()
+        conn.close()
         log.info(f"consumer closed — total messages processed: {count}")
 
 

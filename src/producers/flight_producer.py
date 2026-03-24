@@ -101,7 +101,7 @@ producer = KafkaProducer(
 )
 
 
-if __name__ == "__main__":
+def run():
     tokens = TokenManager()
     log.info(f"starting flights producer — topic: {TOPIC_NAME}")
 
@@ -139,3 +139,7 @@ if __name__ == "__main__":
         producer.flush()
         log.info(f"cycle done — sent: {cycle_count} flights, skipped: {skipped}")
         time.sleep(INTERVAL)
+
+
+if __name__ == "__main__":
+    run()

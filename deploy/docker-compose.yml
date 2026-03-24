@@ -29,7 +29,66 @@ services:
       - 28082:28082
       - 29092:29092
 
-#docker compose -f deploy/docker-compose.yml up
-#docker exec -it deploy-redpanda-1 rpk topic consume earthquake-feeds
-#docker exec -it deploy-redpanda-1 rpk topic delete earthquake-feeds
-#docker exec -it deploy-redpanda-1 rpk topic create earthquake-feeds --partitions 3
+  postgres:
+    image: postgres:18
+    restart: on-failure
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    depends_on:
+      - redpanda
+
+  jobmanager:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.flink
+    image: pyflink-workshop
+    pull_policy: never
+    expose:
+      - "6123"
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./:/opt/flink/usrlib
+      - ../src/:/opt/src
+    command: jobmanager
+    env_file:
+      - ../.env
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 1600m
+    depends_on:
+      - redpanda
+
+  taskmanager:
+    image: pyflink-workshop
+    pull_policy: never
+    expose:
+      - "6121"
+      - "6122"
+    volumes:
+      - ./:/opt/flink/usrlib
+      - ../src/:/opt/src
+    depends_on:
+      - jobmanager
+    command: taskmanager --taskmanager.registration.timeout 5 min
+    env_file:
+      - ../.env
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 15
+        parallelism.default: 3
+
+#docker compose -f deploy/docker-compose.yml up redpanda jobmanager taskmanager
+
+#docker exec -it deploy-default-1 rpk topic consume topic-name
+#docker exec -it deploy-default-1 rpk topic delete topic-name
+#docker exec -it deploy-default-1 rpk topic create topic-name

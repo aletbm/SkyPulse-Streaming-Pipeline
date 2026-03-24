@@ -21,7 +21,10 @@ HOUR_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.g
 INTERVAL = 60
 SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC_NAME = os.getenv("TOPIC_SEISMIC", "earthquake-feeds")
-STATE_FILE = Path(__file__).parent / "state_seismic.json"
+
+STATE_DIR = Path(__file__).parent / "misc"
+STATE_DIR.mkdir(parents=True, exist_ok=True)
+STATE_FILE = STATE_DIR / "state_seismic.json"
 
 log = get_logger(__name__)
 
@@ -77,7 +80,8 @@ producer = KafkaProducer(
     value_serializer=earthquake_serializer,
 )
 
-if __name__ == "__main__":
+
+def run():
     last_ts = load_last_ts()
     log.info(f"starting — last_ts: {last_ts}")
 
@@ -98,3 +102,7 @@ if __name__ == "__main__":
             save_last_ts(last_ts)
             log.info(f"cycle done — {count} new earthquakes sent")
         time.sleep(INTERVAL)
+
+
+if __name__ == "__main__":
+    run()
