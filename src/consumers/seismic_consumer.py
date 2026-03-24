@@ -3,16 +3,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import os
+from datetime import datetime
+
+import psycopg2
+from dotenv import load_dotenv
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
-import psycopg2
-from datetime import datetime
 
 from logger import get_logger
 from models.seismic import earthquake_deserializer, ts_to_str
-
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -115,7 +115,8 @@ def run():
 
             count += 1
             log.info(
-                f"[{count}] {ts_to_str(earthquake.event_time)} | {earthquake.place} mag={earthquake.mag}"
+                f"""[{count}] {ts_to_str(earthquake.event_time)} |
+                {earthquake.place} mag={earthquake.mag}"""
             )
 
     except KafkaError as e:

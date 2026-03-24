@@ -3,17 +3,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from kafka import KafkaConsumer
-import psycopg2
-from datetime import datetime
-from psycopg2.extras import execute_values
+import os
 import time
+from datetime import datetime
+
+import psycopg2
+from dotenv import load_dotenv
+from kafka import KafkaConsumer
+from psycopg2.extras import execute_values
 
 from logger import get_logger
 from models.weather import weather_deserializer
-
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 

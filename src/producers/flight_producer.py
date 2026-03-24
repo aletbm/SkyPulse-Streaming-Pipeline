@@ -5,14 +5,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import os
 import time
-import requests
 from datetime import datetime, timedelta
+
+import requests
+from dotenv import load_dotenv
 from kafka import KafkaProducer
 
 from logger import get_logger
-from models.flight import parse_flight, flight_serializer
-
-from dotenv import load_dotenv
+from models.flight import flight_serializer, parse_flight
 
 load_dotenv()
 

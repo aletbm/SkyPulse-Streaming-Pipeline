@@ -3,16 +3,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import requests
 import json
+import os
 import time
+
+import requests
+from dotenv import load_dotenv
 from kafka import KafkaProducer
 
 from logger import get_logger
 from models.seismic import earthquake_serializer, parse_earthquake, safe_int, ts_to_str
-
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 

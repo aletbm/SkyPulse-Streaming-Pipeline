@@ -3,17 +3,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import os
+import time
+from datetime import datetime
+
+import psycopg2
+from dotenv import load_dotenv
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
-import psycopg2
 from psycopg2.extras import execute_values
-from datetime import datetime
-import time
+
 from logger import get_logger
 from models.flight import flight_deserializer
-
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -160,7 +161,11 @@ def run():
 
                     count += 1
                     log.info(
-                        f"[{count}] {flight.callsign or 'N/A'} | {flight.origin_country} | lat={flight.latitude} lon={flight.longitude} alt={flight.baro_altitude}m"
+                        f"""[{count}] {flight.callsign or "N/A"} |
+                        {flight.origin_country} |
+                        lat={flight.latitude}
+                        lon={flight.longitude}
+                        alt={flight.baro_altitude}m"""
                     )
 
     except KafkaError as e:

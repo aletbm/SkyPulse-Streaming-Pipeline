@@ -1,6 +1,6 @@
-import os
 import argparse
 import fnmatch
+import os
 
 
 def load_gitignore_patterns(folder):

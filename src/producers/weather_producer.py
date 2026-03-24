@@ -5,11 +5,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import os
 import time
-from dotenv import load_dotenv
-from kafka import KafkaProducer
 
 import openmeteo_requests
 import requests_cache
+from dotenv import load_dotenv
+from kafka import KafkaProducer
 from retry_requests import retry
 
 from logger import get_logger
