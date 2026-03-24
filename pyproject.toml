@@ -34,7 +34,8 @@ line-length = 88
 target-version = "py311"
 exclude = [
     "notebooks",
-    "**/*.ipynb"
+    "**/*.ipynb",
+    "src/jobs/**.py"
 ]
 
 [tool.ruff.lint]
