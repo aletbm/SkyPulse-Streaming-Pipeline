@@ -211,3 +211,7 @@ __marimo__/
 .cache.sqlite
 state_seismic.json
 .bruin.yml
+
+logs/runs
+logs/*.log
+*.py[cod]
