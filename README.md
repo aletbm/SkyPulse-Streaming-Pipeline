@@ -1,9 +1,9 @@
 <p align="center">
-    <h1> SkyPulse - Streaming Pipeline </h1>
+    <img width=400px src=./assets/images/skypulse_logo.svg>
 </p>
 
 <p align="center">
-    <img width=400px src=./assets/images/skypulse_logo.svg>
+    <h1> SkyPulse - Streaming Pipeline </h1>
 </p>
 
 **Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data — from raw API feeds to analytics-ready marts.**
