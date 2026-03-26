@@ -67,15 +67,15 @@ country_totals AS (
     GROUP BY origin_country, current_continent
 ),
 
-history AS (
+history_agg AS (
     SELECT
         origin_country,
-        window_start,
-        flight_count,
-        airborne_count,
-        ROUND(avg_altitude_m::numeric, 1) AS avg_altitude_m
+        MAX(flight_count)                      AS peak_flights_2h,
+        MIN(flight_count)                      AS min_flights_2h,
+        ROUND(AVG(flight_count)::numeric, 1)   AS avg_flights_2h
     FROM staging.stg_flights_tumbling
     WHERE window_end >= NOW() - INTERVAL '2 hours'
+    GROUP BY origin_country
 )
 
 SELECT
@@ -118,15 +118,15 @@ SELECT
     lw.avg_velocity_ms                                              AS window_avg_velocity_ms,
 
     -- 2h trend
-    MAX(h.flight_count)                                             AS peak_flights_2h,
-    MIN(h.flight_count)                                             AS min_flights_2h,
-    ROUND(AVG(h.flight_count)::numeric, 1)                         AS avg_flights_2h,
+    ha.peak_flights_2h,
+    ha.min_flights_2h,
+    ha.avg_flights_2h,
 
     NOW()                                                           AS refreshed_at
 
 FROM country_totals ct
 LEFT JOIN latest_window lw USING (origin_country)
-LEFT JOIN history        h  USING (origin_country)
+LEFT JOIN history_agg   ha USING (origin_country)
 GROUP BY
     ct.origin_country, ct.continent,
     ct.airline_name, ct.airline_iata, ct.airline_icao,
@@ -135,5 +135,6 @@ GROUP BY
     ct.avg_altitude_m, ct.avg_speed_knots, ct.max_speed_knots, ct.max_altitude_m,
     ct.flights_near_airport, ct.most_common_airport, ct.most_common_city,
     ct.active_grid_cells,
-    lw.window_start, lw.window_end, lw.flight_count, lw.avg_velocity_ms
+    lw.window_start, lw.window_end, lw.flight_count, lw.avg_velocity_ms,
+    ha.peak_flights_2h, ha.min_flights_2h, ha.avg_flights_2h
 ORDER BY ct.live_flight_count DESC

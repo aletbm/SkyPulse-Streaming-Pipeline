@@ -51,7 +51,7 @@ columns:
 
   - name: dst
     type: string
-    description: "DST rule.
+    description: "DST rule."
 
   - name: tz_database
     type: string
