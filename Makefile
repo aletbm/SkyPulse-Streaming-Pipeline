@@ -41,6 +41,9 @@ postgres:
 postgres-destroy:
 	docker compose -f $(PATH_DEPLOY)/docker-compose.yml down postgres
 
+run-pipeline:
+	scripts\bruin\run_bruin.bat
+
 # --- Streaming layer ---
 clean-topics:
 	docker exec $(REDPANDA_SERVICE) rpk topic delete $(TOPIC_SEISMIC)

@@ -36,8 +36,6 @@ columns:
     type: boolean
     description: Tsunami alert.
     nullable: true
-    checks:
-      - name: non_negative
 
   - name: event_time
     type: timestamp
@@ -101,7 +99,7 @@ SELECT
     -- Region extraction (after the comma)
     CASE
         WHEN place LIKE '%, %'
-        THEN TRIM(SUBSTRING(place FROM POSITION(',' IN place) + 1))
+        THEN TRIM(SPLIT_PART(place, ',', -1))
         ELSE TRIM(place)
     END                                 AS region,
 

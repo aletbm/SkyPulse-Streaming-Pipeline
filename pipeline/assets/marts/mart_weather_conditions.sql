@@ -95,6 +95,21 @@ hourly_temp_trend AS (
     FROM staging.stg_weather_tumbling
     WHERE window_end >= NOW() - INTERVAL '6 hours'
     GROUP BY region_name, DATE_TRUNC('hour', window_start)
+),
+
+region_hourly_weather AS (
+    SELECT
+        region_name,
+        JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'hour',          hour_bucket,
+                'avg_temp_c',    avg_temp_c,
+                'avg_wind_ms',   avg_wind_ms,
+                'total_precip_mm', total_precip_mm
+            ) ORDER BY hour_bucket
+        ) AS hourly_trend
+    FROM hourly_temp_trend
+    GROUP BY region_name
 )
 
 SELECT
@@ -121,6 +136,8 @@ SELECT
     tl.window_start                                     AS last_window_start,
     tl.snapshot_count                                   AS last_window_snapshot_count,
 
+    rhw.hourly_trend,
+
     -- Composite condition label for the tile
     CASE
         WHEN ra.total_precip_mm > 10               THEN 'Heavy precipitation'
@@ -136,4 +153,5 @@ SELECT
 
 FROM region_agg ra
 LEFT JOIN tumbling_last tl USING (region_name)
+LEFT JOIN region_hourly_weather rhw USING (region_name)
 ORDER BY ra.region_name

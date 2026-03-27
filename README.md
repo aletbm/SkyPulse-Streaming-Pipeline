@@ -1,12 +1,8 @@
-<p align="center">
+<div align="center">
     <img width=400px src=./assets/images/skypulse_logo.svg>
-</p>
-
-<p align="center">
     <h1> SkyPulse - Streaming Pipeline </h1>
-</p>
+</div>
 
-**Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data — from raw API feeds to analytics-ready marts.**
 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![UV](https://img.shields.io/badge/UV-000000?style=for-the-badge&logo=astral&logoColor=white)
@@ -517,9 +513,16 @@ SkyPulse-Streaming-Pipeline/
 |---|---|---|
 | Python | 3.12 | Managed via `.python-version` |
 | `uv` | latest | [Install](https://docs.astral.sh/uv/getting-started/installation/) |
+| `make` | latest | See note below |
 | Docker + Docker Compose | latest | Required for Redpanda and Flink |
 | Bruin CLI | latest | [Install](https://bruin-data.github.io/bruin/getting-started/introduction.html) |
 | Supabase project | — | Free tier is sufficient |
+
+> **Installing `make`**
+>
+> - **Linux (Debian/Ubuntu):** `sudo apt install make`
+> - **macOS:** included with Xcode Command Line Tools — run `xcode-select --install`, or via Homebrew: `brew install make`
+> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative — `make` works out of the box inside the Linux subsystem.
 
 ### Environment Setup
 

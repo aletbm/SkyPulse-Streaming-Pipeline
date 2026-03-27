@@ -25,10 +25,10 @@ WITH base AS (
         tz_database,
         altitude_m,
         geog,
-
-        FLOOR(latitude * 2) / 2  AS grid_lat,
-        FLOOR(longitude * 2) / 2 AS grid_lon
-
+        latitude,
+        longitude,
+        CAST(FLOOR(latitude  / 10) * 10 AS INTEGER) AS grid_lat,
+        CAST(FLOOR(longitude / 10) * 10 AS INTEGER) AS grid_lon
     FROM staging.stg_airports
 ),
 
@@ -67,8 +67,18 @@ SELECT DISTINCT ON (grid_lat, grid_lon)
     tz_database,
     altitude_m,
     geog
-FROM expanded
+FROM base
 ORDER BY
     grid_lat,
     grid_lon,
-    airport_name;
+
+    ST_Distance(
+        geog,
+        ST_SetSRID(
+            ST_MakePoint(
+                grid_lon + 5.0,
+                grid_lat + 5.0
+            ),
+            4326
+        )::geography
+    ) ASC

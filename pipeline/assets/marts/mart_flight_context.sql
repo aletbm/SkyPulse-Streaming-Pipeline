@@ -78,6 +78,12 @@ recent_seismic_grid AS (
     FROM staging.stg_seismics
     WHERE event_time >= NOW() - INTERVAL '24 hours'
     GROUP BY grid_lat, grid_lon
+),
+
+avg_flights_global AS (
+    SELECT AVG(flight_count) AS global_avg
+    FROM staging.stg_flight_context
+    WHERE window_end = (SELECT MAX(window_end) FROM staging.stg_flight_context)
 )
 
 SELECT
@@ -103,12 +109,12 @@ SELECT
     ROUND(fc.avg_altitude_m::numeric, 1)        AS avg_altitude_m,
 
     -- Live flight phase breakdown
-    COALESCE(lg.cruising_count,       0)        AS cruising_count,
-    COALESCE(lg.climb_descend_count,  0)        AS climb_descend_count,
-    COALESCE(lg.takeoff_landing_count,0)        AS takeoff_landing_count,
-    COALESCE(lg.near_airport_count,   0)        AS near_airport_count,
-    COALESCE(lg.avg_speed_knots,      0)        AS avg_speed_knots,
-    COALESCE(lg.max_altitude_m,       0)        AS max_altitude_m,
+    lg.cruising_count,
+    lg.climb_descend_count,
+    lg.takeoff_landing_count,
+    lg.near_airport_count,
+    lg.avg_speed_knots,
+    lg.max_altitude_m,
 
     -- Flink seismic (within window)
     fc.nearby_eq_count,
@@ -131,8 +137,8 @@ SELECT
     lw.avg_precip_mm,
 
     -- Composite risk score (0–100)
-    LEAST(100, ROUND((
-        LEAST(25, fc.airborne_count::float / NULLIF(fc.flight_count, 0) * 25)
+    LEAST(100,
+        LEAST(25, (fc.flight_count::numeric / NULLIF(gf.global_avg::numeric, 0) * 12.5))
         +
         CASE
             WHEN COALESCE(rs.max_mag_24h, 0) >= 7 THEN 35
@@ -155,11 +161,12 @@ SELECT
             WHEN COALESCE(lw.avg_visibility_m, 99999) < 3000 THEN 3
             ELSE 0
         END
-    )::numeric, 1))                             AS risk_score,
+    )                                    AS risk_score,
 
     NOW()                                       AS refreshed_at
 
 FROM latest_context fc
+CROSS JOIN avg_flights_global gf
 LEFT JOIN live_flights_grid  lg ON fc.grid_lat = lg.grid_lat AND fc.grid_lon = lg.grid_lon
 LEFT JOIN live_weather_grid  lw ON fc.grid_lat = lw.grid_lat AND fc.grid_lon = lw.grid_lon
 LEFT JOIN recent_seismic_grid rs ON fc.grid_lat = rs.grid_lat AND fc.grid_lon = rs.grid_lon

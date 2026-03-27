@@ -30,14 +30,10 @@ WITH flight_base AS (
         latitude,
         geog,
 
-        FLOOR(latitude * 2) / 2  AS grid_lat,
-        FLOOR(longitude * 2) / 2 AS grid_lon,
+        FLOOR(latitude * 10) / 10  AS grid_lat,
+        FLOOR(longitude * 10) / 10 AS grid_lon,
 
-        CASE
-            WHEN baro_altitude IS NULL OR baro_altitude < 0 THEN NULL
-            ELSE ROUND(CAST(baro_altitude AS numeric), 1)
-        END AS baro_altitude_m,
-
+        baro_altitude_m,
         on_ground,
 
         CASE
@@ -45,10 +41,7 @@ WITH flight_base AS (
             ELSE ROUND(CAST(velocity AS numeric), 2)
         END AS velocity_ms,
 
-        CASE
-            WHEN velocity IS NULL OR velocity < 0 THEN NULL
-            ELSE ROUND(CAST(velocity * 1.94384 AS numeric), 1)
-        END AS velocity_knots,
+        velocity_knots,
 
         CASE
             WHEN on_ground = TRUE                      THEN 'on_ground'
@@ -58,23 +51,7 @@ WITH flight_base AS (
             ELSE                                            'cruising'
         END                                 AS flight_phase,
 
-        CASE
-            WHEN latitude IS NULL OR longitude IS NULL THEN 'unknown'
-            WHEN latitude  BETWEEN  23.5 AND  66.5
-             AND longitude BETWEEN -130  AND  -60     THEN 'North America'
-            WHEN latitude  BETWEEN  -56  AND   13
-             AND longitude BETWEEN  -82  AND  -34     THEN 'South America'
-            WHEN latitude  BETWEEN   36  AND   71
-             AND longitude BETWEEN   -9  AND   40     THEN 'Europe'
-            WHEN latitude  BETWEEN  -35  AND   37
-             AND longitude BETWEEN   -17 AND   51     THEN 'Africa'
-            WHEN latitude  BETWEEN   -10 AND   55
-             AND longitude BETWEEN    26 AND  145     THEN 'Asia'
-            WHEN latitude  BETWEEN  -47  AND  -10
-             AND longitude BETWEEN   112 AND  154     THEN 'Oceania'
-            ELSE 'Other'
-        END                                 AS current_continent,
-
+        continent                           AS current_continent,
         true_track,
         category
 
@@ -89,15 +66,50 @@ country_airline AS (
     SELECT DISTINCT ON (country)
         country,
         airline_name,
-        iata_code AS airline_iata,
-        icao_code AS airline_icao
-    FROM staging.stg_airlines
-    WHERE is_active = TRUE
-    ORDER BY country, airline_id
+        airline_iata,
+        airline_icao
+    FROM (
+        SELECT
+            f.origin_country            AS country,
+            a.airline_name,
+            a.iata_code                 AS airline_iata,
+            a.icao_code                 AS airline_icao,
+            COUNT(*)                    AS flight_count
+        FROM flight_base f
+        JOIN staging.stg_airlines a
+            ON f.origin_country = a.country
+            AND a.is_active = TRUE
+        GROUP BY
+            f.origin_country,
+            a.airline_name,
+            a.iata_code,
+            a.icao_code
+    ) ranked
+    ORDER BY
+        country,
+        flight_count DESC,
+        airline_name ASC  -- desempate determinístico
 )
 
 SELECT
-    f.*,
+    f.icao24,
+    f.callsign,
+    f.origin_country,
+    f.time_position,
+    f.last_contact,
+    f.longitude,
+    f.latitude,
+    f.geog,
+    f.baro_altitude_m,
+    f.on_ground,
+    f.velocity_ms,
+    f.velocity_knots,
+    f.flight_phase,
+    f.current_continent,
+    f.grid_lat,
+    f.grid_lon,
+    f.true_track,
+    f.category,
 
     ag.airport_name        AS nearest_airport_name,
     ag.iata_code           AS nearest_airport_iata,
@@ -108,10 +120,7 @@ SELECT
     ag.tz_database         AS nearest_airport_timezone,
     ag.altitude_m          AS nearest_airport_altitude_m,
 
-    CASE
-        WHEN ag.airport_name IS NOT NULL THEN TRUE
-        ELSE FALSE
-    END AS near_airport,
+    (ag.airport_name IS NOT NULL) AS near_airport,
 
     ca.airline_name,
     ca.airline_iata,

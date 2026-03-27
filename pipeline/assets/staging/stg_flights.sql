@@ -95,7 +95,6 @@ SELECT
     longitude,
     latitude,
 
-    -- 🔥 NUEVO: geografía precomputada
     CAST(
         ST_SetSRID(
             ST_MakePoint(longitude, latitude),

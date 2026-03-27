@@ -60,6 +60,8 @@ columns:
     type: float
     description: Wind direction in degrees.
     nullable: True
+    check:
+      - name: non_negative
 
   - name: windgusts_ms
     type: float
@@ -79,6 +81,8 @@ columns:
     type: float
     description: Accumulated rainfall in mm.
     nullable: True
+    check:
+      - name: non_negative
 
   - name: snowfall_cm
     type: float
@@ -119,15 +123,11 @@ columns:
     type: float
     description: Air temperature at 2m height in °C.
     nullable: True
-    check:
-      - name: non_negative
 
   - name: apparent_temperature_c
     type: float
     description: Feels-like temperature in °C.
     nullable: True
-    check:
-      - name: non_negative
 
   - name: humidity_pct
     type: float
@@ -191,28 +191,35 @@ SELECT
 
     -- WMO weathercode human label
     CASE weathercode
-        WHEN 0  THEN 'Clear sky'
-        WHEN 1  THEN 'Mainly clear'
-        WHEN 2  THEN 'Partly cloudy'
-        WHEN 3  THEN 'Overcast'
-        WHEN 45 THEN 'Fog'
-        WHEN 48 THEN 'Icy fog'
-        WHEN 51 THEN 'Light drizzle'
-        WHEN 53 THEN 'Moderate drizzle'
-        WHEN 55 THEN 'Dense drizzle'
-        WHEN 61 THEN 'Slight rain'
-        WHEN 63 THEN 'Moderate rain'
-        WHEN 65 THEN 'Heavy rain'
-        WHEN 71 THEN 'Slight snow'
-        WHEN 73 THEN 'Moderate snow'
-        WHEN 75 THEN 'Heavy snow'
-        WHEN 80 THEN 'Slight showers'
-        WHEN 81 THEN 'Moderate showers'
-        WHEN 82 THEN 'Violent showers'
-        WHEN 95 THEN 'Thunderstorm'
-        WHEN 96 THEN 'Thunderstorm w/ slight hail'
-        WHEN 99 THEN 'Thunderstorm w/ heavy hail'
-        ELSE        'Unknown'
+      WHEN 0  THEN 'Clear sky'
+      WHEN 1  THEN 'Mainly clear'
+      WHEN 2  THEN 'Partly cloudy'
+      WHEN 3  THEN 'Overcast'
+      WHEN 45 THEN 'Fog'
+      WHEN 48 THEN 'Freezing fog'
+      WHEN 51 THEN 'Light drizzle'
+      WHEN 53 THEN 'Moderate drizzle'
+      WHEN 55 THEN 'Dense drizzle'
+      WHEN 56 THEN 'Light freezing drizzle'
+      WHEN 57 THEN 'Heavy freezing drizzle'
+      WHEN 61 THEN 'Slight rain'
+      WHEN 63 THEN 'Moderate rain'
+      WHEN 65 THEN 'Heavy rain'
+      WHEN 66 THEN 'Light freezing rain'
+      WHEN 67 THEN 'Heavy freezing rain'
+      WHEN 71 THEN 'Slight snow'
+      WHEN 73 THEN 'Moderate snow'
+      WHEN 75 THEN 'Heavy snow'
+      WHEN 77 THEN 'Snow grains'
+      WHEN 80 THEN 'Slight showers'
+      WHEN 81 THEN 'Moderate showers'
+      WHEN 82 THEN 'Violent showers'
+      WHEN 85 THEN 'Slight snow showers'
+      WHEN 86 THEN 'Heavy snow showers'
+      WHEN 95 THEN 'Thunderstorm'
+      WHEN 96 THEN 'Thunderstorm w/ slight hail'
+      WHEN 99 THEN 'Thunderstorm w/ heavy hail'
+      ELSE         'Unknown'
     END                                 AS weather_label,
 
     -- Wind severity

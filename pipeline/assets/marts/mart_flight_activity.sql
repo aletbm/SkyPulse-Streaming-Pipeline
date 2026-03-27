@@ -58,6 +58,11 @@ country_totals AS (
 
         -- Airport proximity
         COUNT(*) FILTER (WHERE near_airport = TRUE)                 AS flights_near_airport,
+        ROUND(
+            COUNT(*) FILTER (WHERE near_airport = TRUE)::numeric
+            / NULLIF(COUNT(*), 0) * 100,
+            1
+        )                                                           AS pct_near_airport,
         MODE() WITHIN GROUP (ORDER BY nearest_airport_name)         AS most_common_airport,
         MODE() WITHIN GROUP (ORDER BY nearest_airport_city)         AS most_common_city,
 
@@ -103,10 +108,7 @@ SELECT
 
     -- Airport context
     ct.flights_near_airport,
-    ROUND(
-        ct.flights_near_airport::numeric / NULLIF(ct.live_flight_count, 0) * 100,
-        1
-    )                                                               AS pct_near_airport,
+    ct.pct_near_airport,
     ct.most_common_airport,
     ct.most_common_city,
     ct.active_grid_cells,
@@ -127,14 +129,4 @@ SELECT
 FROM country_totals ct
 LEFT JOIN latest_window lw USING (origin_country)
 LEFT JOIN history_agg   ha USING (origin_country)
-GROUP BY
-    ct.origin_country, ct.continent,
-    ct.airline_name, ct.airline_iata, ct.airline_icao,
-    ct.live_flight_count, ct.live_airborne_count, ct.live_on_ground_count,
-    ct.cruising_count, ct.climb_descend_count, ct.takeoff_landing_count,
-    ct.avg_altitude_m, ct.avg_speed_knots, ct.max_speed_knots, ct.max_altitude_m,
-    ct.flights_near_airport, ct.most_common_airport, ct.most_common_city,
-    ct.active_grid_cells,
-    lw.window_start, lw.window_end, lw.flight_count, lw.avg_velocity_ms,
-    ha.peak_flights_2h, ha.min_flights_2h, ha.avg_flights_2h
 ORDER BY ct.live_flight_count DESC
