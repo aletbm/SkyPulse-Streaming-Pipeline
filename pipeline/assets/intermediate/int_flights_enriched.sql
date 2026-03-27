@@ -30,8 +30,8 @@ WITH flight_base AS (
         latitude,
         geog,
 
-        FLOOR(latitude * 10) / 10  AS grid_lat,
-        FLOOR(longitude * 10) / 10 AS grid_lon,
+        CAST(FLOOR(latitude  / 10) * 10 AS INTEGER) AS grid_lat,
+        CAST(FLOOR(longitude / 10) * 10 AS INTEGER) AS grid_lon,
 
         baro_altitude_m,
         on_ground,

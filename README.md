@@ -1,21 +1,23 @@
 <div align="center">
     <img width=400px src=./assets/images/skypulse_logo.svg>
     <h1> SkyPulse - Streaming Pipeline </h1>
+    <strong>Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data - from raw API feeds to analytics-ready marts.</strong>
+    <br>
+    <br>
+    <img src=https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white>
+    <img src=https://img.shields.io/badge/UV-000000?style=for-the-badge&logo=astral&logoColor=white>
+    <img src=https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white>
+    <img src=https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white>
+    <img src=https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white>
+    <img src=https://img.shields.io/badge/Apache%20Flink-E6526F?style=for-the-badge&logo=apacheflink&logoColor=white>
+    <img src=https://img.shields.io/badge/Redpanda-FF3C3C?style=for-the-badge&logo=redpanda&logoColor=white>
+    <img src=https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white>
+    <img src=https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white>
+    <img src=https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white>
+    <img src=https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white>
+    <img src=https://img.shields.io/badge/Ruff-D7FF64?style=for-the-badge&logo=ruff&logoColor=black>
 </div>
 
-
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![UV](https://img.shields.io/badge/UV-000000?style=for-the-badge&logo=astral&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
-![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
-![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
-![Apache Flink](https://img.shields.io/badge/Apache%20Flink-E6526F?style=for-the-badge&logo=apacheflink&logoColor=white)
-![Redpanda](https://img.shields.io/badge/Redpanda-FF3C3C?style=for-the-badge&logo=redpanda&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
-![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=for-the-badge&logo=ruff&logoColor=black)
 
 ---
 
@@ -23,9 +25,9 @@
 
 SkyPulse is an end-to-end streaming data pipeline that continuously ingests three independent real-world data streams:
 
-- **Flight positions** — live aircraft states from the [OpenSky Network](https://opensky-network.org/) REST API (ICAO 24-bit transponder data, ~90s polling cadence)
-- **Weather snapshots** — current atmospheric conditions across a global grid of ~500+ points sourced from the [Open-Meteo](https://open-meteo.com/) API (15-min cadence)
-- **Seismic events** — real-time earthquake feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) (60s polling, event-time deduplication)
+- **Flight positions** - live aircraft states from the [OpenSky Network](https://opensky-network.org/) REST API (ICAO 24-bit transponder data, ~90s polling cadence)
+- **Weather snapshots** - current atmospheric conditions across a global grid of ~500+ points sourced from the [Open-Meteo](https://open-meteo.com/) API (15-min cadence)
+- **Seismic events** - real-time earthquake feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) (60s polling, event-time deduplication)
 
 Each stream is independently produced into a Redpanda (Kafka-compatible) broker, consumed into a Supabase (PostgreSQL) landing zone, and processed by Apache Flink tumbling-window jobs that compute 5-minute aggregates. A Bruin pipeline then transforms raw landing tables into a layered analytical model (staging → intermediate → marts), producing enriched, cross-stream outputs including a composite geospatial risk score per 10-degree grid cell.
 
@@ -93,7 +95,7 @@ Flights and weather are upserted because they represent the latest known state o
 
 A fourth static ingestion path uses Bruin Python assets to load reference data from [OpenFlights](https://openflights.org/) into `public.raw_airports`, `public.raw_airlines`, and `public.raw_planes`.
 
-### 3. Processing (Apache Flink — tumbling window jobs)
+### 3. Processing (Apache Flink - tumbling window jobs)
 
 Four PyFlink jobs run inside the Flink cluster (JobManager + TaskManager containers):
 
@@ -104,24 +106,24 @@ Four PyFlink jobs run inside the Flink cluster (JobManager + TaskManager contain
 | `weather_tumbling.py` | `weather-feeds` | `weather_tumbling` | 5 min event time |
 | `flight_context_tumbling.py` | all three topics | `flight_context` | 5 min PROCTIME |
 
-`flight_context_tumbling.py` is the core cross-stream job. It joins flights, seismic events, and weather readings on a shared 10-degree lat/lon grid cell — a deliberately coarse spatial key that avoids a full cross-join while preserving geographic relevance. Watermarks are set at 30s for seismic (low-latency USGS feed) and 60s for weather (15-min update cycle).
+`flight_context_tumbling.py` is the core cross-stream job. It joins flights, seismic events, and weather readings on a shared 10-degree lat/lon grid cell - a deliberately coarse spatial key that avoids a full cross-join while preserving geographic relevance. Watermarks are set at 30s for seismic (low-latency USGS feed) and 60s for weather (15-min update cycle).
 
 All jobs write to Supabase via the Flink JDBC connector (`flink-connector-jdbc-postgres`) and enable checkpointing at 10s intervals.
 
-### 4. Serving (Bruin pipeline — `staging` → `intermediate` → `mart`)
+### 4. Serving (Bruin pipeline - `staging` → `intermediate` → `mart`)
 
 The Bruin pipeline (`pipeline.yml`, scheduled every 2 minutes) transforms landing tables into three analytical layers:
 
-**Staging** — clean, typed, geo-enriched views of each raw table. Key transformations include: geospatial `geography` column creation via PostGIS (`ST_MakePoint`), continent classification, 10-degree grid cell assignment, WMO weather code labels, wind severity bands, and magnitude classification for seismic events.
+**Staging** - clean, typed, geo-enriched views of each raw table. Key transformations include: geospatial `geography` column creation via PostGIS (`ST_MakePoint`), continent classification, 10-degree grid cell assignment, WMO weather code labels, wind severity bands, and magnitude classification for seismic events.
 
-**Intermediate** — pre-joined, performance-optimized tables. `int_airport_grid` builds a spatial lookup grid from `stg_airports`. `int_flights_enriched` joins live flights with the nearest airport (via grid cell) and infers flight phase (`on_ground`, `takeoff_landing`, `climbing_descending`, `cruising`) and airline from country of origin.
+**Intermediate** - pre-joined, performance-optimized tables. `int_airport_grid` builds a spatial lookup grid from `stg_airports`. `int_flights_enriched` joins live flights with the nearest airport (via grid cell) and infers flight phase (`on_ground`, `takeoff_landing`, `climbing_descending`, `cruising`) and airline from country of origin.
 
-**Marts** — four analytics-ready tables:
+**Marts** - four analytics-ready tables:
 
-- `mart.mart_flight_activity` — global flight counts by country and continent, enriched with airline metadata, flight phase breakdown, and a 2-hour trend window.
-- `mart.mart_weather_conditions` — regional weather aggregates with condition summaries, wind alerts, and temperature trends from tumbling windows.
-- `mart.mart_seismic_activity` — seismic statistics by region over 24h, including magnitude class distribution, risk level classification, and hourly event trends.
-- `mart.mart_flight_context` — the cross-stream enrichment mart. One row per active 10-degree grid cell, combining Flink window aggregates (flights + seismic + weather) with live flight phase data and a composite **risk score (0–100)** calculated from airborne density, seismic magnitude, wind severity, and visibility.
+- `mart.mart_flight_activity` - global flight counts by country and continent, enriched with airline metadata, flight phase breakdown, and a 2-hour trend window.
+- `mart.mart_weather_conditions` - regional weather aggregates with condition summaries, wind alerts, and temperature trends from tumbling windows.
+- `mart.mart_seismic_activity` - seismic statistics by region over 24h, including magnitude class distribution, risk level classification, and hourly event trends.
+- `mart.mart_flight_context` - the cross-stream enrichment mart. One row per active 10-degree grid cell, combining Flink window aggregates (flights + seismic + weather) with live flight phase data and a composite **risk score (0–100)** calculated from airborne density, seismic magnitude, wind severity, and visibility.
 
 ---
 
@@ -516,13 +518,13 @@ SkyPulse-Streaming-Pipeline/
 | `make` | latest | See note below |
 | Docker + Docker Compose | latest | Required for Redpanda and Flink |
 | Bruin CLI | latest | [Install](https://bruin-data.github.io/bruin/getting-started/introduction.html) |
-| Supabase project | — | Free tier is sufficient |
+| Supabase project | - | Free tier is sufficient |
 
 > **Installing `make`**
 >
 > - **Linux (Debian/Ubuntu):** `sudo apt install make`
-> - **macOS:** included with Xcode Command Line Tools — run `xcode-select --install`, or via Homebrew: `brew install make`
-> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative — `make` works out of the box inside the Linux subsystem.
+> - **macOS:** included with Xcode Command Line Tools - run `xcode-select --install`, or via Homebrew: `brew install make`
+> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative - `make` works out of the box inside the Linux subsystem.
 
 ### Environment Setup
 
@@ -638,10 +640,10 @@ make streaming
 
 This executes the following steps in sequence:
 
-1. `make producers` — launches `seismic_producer.py`, `flight_producer.py`, and `weather_producer.py` in separate terminal windows
-2. `make consumers` — launches `seismic_consumer.py`, `flight_consumer.py`, and `weather_consumer.py` in separate terminal windows
-3. `make wait-topics` — polls Redpanda until all three topics have received at least one message
-4. `make jobs` — submits all four Flink jobs to the JobManager via `docker exec`
+1. `make producers` - launches `seismic_producer.py`, `flight_producer.py`, and `weather_producer.py` in separate terminal windows
+2. `make consumers` - launches `seismic_consumer.py`, `flight_consumer.py`, and `weather_consumer.py` in separate terminal windows
+3. `make wait-topics` - polls Redpanda until all three topics have received at least one message
+4. `make jobs` - submits all four Flink jobs to the JobManager via `docker exec`
 
 To run components individually:
 
