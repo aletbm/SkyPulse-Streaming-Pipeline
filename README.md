@@ -18,7 +18,6 @@
     <img src=https://img.shields.io/badge/Ruff-D7FF64?style=for-the-badge&logo=ruff&logoColor=black>
 </div>
 
-
 ---
 
 ## About the Project
@@ -93,7 +92,16 @@ Three Kafka consumers write raw records to Supabase, one per topic:
 
 Flights and weather are upserted because they represent the latest known state of a moving object or grid point. Seismic events are append-only since each earthquake is a distinct occurrence.
 
-A fourth static ingestion path uses Bruin Python assets to load reference data from [OpenFlights](https://openflights.org/) into `public.raw_airports`, `public.raw_airlines`, and `public.raw_planes`.
+**Static reference ingestion via Bruin.** Alongside the three real-time streams, Bruin is also responsible for loading static reference data from [OpenFlights](https://openflights.org/) into the `public` schema. Four Bruin Python assets (`ingest_airports.py`, `ingest_airlines.py`, `ingest_planes.py`, `ingest_routes.py`) fetch CSV data directly from the OpenFlights GitHub repository and materialize it as tables in Supabase:
+
+| Bruin Asset | Target Table | Records |
+|---|---|---|
+| `ingest_airports.py` | `public.raw_airports` | ~7,700 airports worldwide |
+| `ingest_airlines.py` | `public.raw_airlines` | ~5,800 airlines |
+| `ingest_planes.py` | `public.raw_planes` | ~200 aircraft types |
+| `ingest_routes.py` | `public.raw_routes` | ~67,000 routes |
+
+These tables feed the staging layer (`stg_airports`, `stg_airlines`) and ultimately power the airport proximity enrichment and airline attribution in `int_flights_enriched` and the flight activity marts. Bruin handles this ingestion as `type: python` assets with `materialization: table`, meaning it recreates the tables on each pipeline run - keeping reference data fresh without any manual ETL.
 
 ### 3. Processing (Apache Flink - tumbling window jobs)
 
@@ -614,6 +622,32 @@ Enable the PostGIS extension (required by staging SQL assets):
 CREATE EXTENSION IF NOT EXISTS postgis;
 ```
 
+Once the Bruin pipeline has run at least once and the staging/intermediate tables exist, create the recommended indexes:
+
+```sql
+-- Geospatial index for PostGIS joins on airports
+CREATE INDEX IF NOT EXISTS idx_stg_airports_geog
+    ON staging.stg_airports USING gist (geog);
+
+-- Grid cell lookup for the airport → flight join (O(1) per cell)
+CREATE INDEX IF NOT EXISTS idx_airport_grid_lookup
+    ON intermediate.int_airport_grid (grid_lat, grid_lon);
+
+-- Lat/lon filter on staged flights
+CREATE INDEX IF NOT EXISTS idx_stg_flights_grid
+    ON staging.stg_flights (latitude, longitude);
+
+-- Expression index matching the exact FLOOR(lat*2)/2 join key used in int_flights_enriched
+CREATE INDEX IF NOT EXISTS idx_stg_flights_grid_computed
+    ON staging.stg_flights ((FLOOR(latitude * 2) / 2), (FLOOR(longitude * 2) / 2));
+
+-- Partial index for the country → airline join (active airlines only)
+CREATE INDEX IF NOT EXISTS idx_stg_airlines_country
+    ON staging.stg_airlines (country) WHERE is_active = TRUE;
+```
+
+> These indexes are already documented as comments inside the SQL assets. They are safe to run multiple times (`IF NOT EXISTS`) and have the most impact on `mart_flight_context` and `mart_flight_activity`, which perform repeated grid-cell joins across all three streams.
+
 ### Start the Infrastructure
 
 Build and start Redpanda and the Flink cluster:
@@ -655,20 +689,28 @@ make jobs          # Flink jobs only (requires topics to have data)
 
 ### Run the Bruin Transformation Pipeline
 
-With data in the landing tables, run the full Bruin pipeline:
+Bruin orchestrates two distinct responsibilities in this project:
+
+**1. Static reference ingestion** - on first run (or whenever reference data needs refreshing), Bruin fetches OpenFlights data and materializes it into `public.raw_airports`, `public.raw_airlines`, `public.raw_planes`, and `public.raw_routes`. This only needs to run once before the streaming pipeline starts, since this data changes infrequently.
+
+**2. Layered SQL transformations** - scheduled every 2 minutes (`pipeline.yml`), Bruin processes the streaming landing tables through the full `staging → intermediate → mart` model, producing the analytics-ready outputs consumed by downstream dashboards or queries.
+
+Run the full pipeline (both ingestion and transformations):
 
 ```bash
 # Windows
 scripts\bruin\run_bruin.bat
 
-# Validate assets without executing
+# Validate asset definitions without executing
 scripts\bruin\validate_bruin.bat
 
-# Run tests (column checks + custom assertions)
+# Run data quality checks (column-level + custom SQL assertions)
 scripts\bruin\test_bruin.bat
 ```
 
-The pipeline processes assets in dependency order: `ingestion` → `staging` → `intermediate` → `marts`.
+Bruin resolves and executes assets in dependency order: `ingestion` → `staging` → `intermediate` → `marts`. On subsequent runs, the static ingestion assets re-materialize their tables (truncate + reload), while the SQL transformation assets read from the latest streaming data in the landing tables.
+
+> **Tip:** run the static ingestion assets once before starting the streaming pipeline. `int_flights_enriched` and `mart_flight_activity` depend on `staging.stg_airports` and `staging.stg_airlines` being populated to perform airport proximity lookups and airline attribution.
 
 ### Teardown
 
