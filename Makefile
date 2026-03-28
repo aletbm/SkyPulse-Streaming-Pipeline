@@ -81,11 +81,8 @@ streaming:
 	$(MAKE) jobs
 
 # --- Terraform ---
-terraform-deploy:
-	terraform -chdir=$(PATH_INFRA) init
-	terraform -chdir=$(PATH_INFRA) validate
-	terraform -chdir=$(PATH_INFRA) plan -out=tfplan
-	terraform -chdir=$(PATH_INFRA) apply "tfplan"
+infra-deploy:
+	infra\setup.bat
 
-terraform-destroy:
-	terraform -chdir=$(PATH_INFRA) destroy -auto-approve
+infra-destroy:
+	terraform -chdir=$(PATH_INFRA)/terraform destroy -auto-approve

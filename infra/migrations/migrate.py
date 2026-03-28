@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import subprocess
 import sys
 import time
@@ -703,8 +704,189 @@ def run_migrations():
     print("✅ Migrations complete")
 
 
+def run_rls():
+    global cur
+
+    tables = [
+        "public.flights",
+        "public.seismics",
+        "public.weather",
+        "public.flights_tumbling",
+        "public.seismics_tumbling",
+        "public.weather_tumbling",
+        "public.flight_context",
+        "public.raw_airports",
+        "public.raw_airlines",
+        "public.raw_planes",
+        "public.raw_routes",
+        "staging.stg_flights",
+        "staging.stg_seismics",
+        "staging.stg_weather",
+        "staging.stg_airports",
+        "staging.stg_airlines",
+        "staging.stg_routes",
+        "staging.stg_flights_tumbling",
+        "staging.stg_seismics_tumbling",
+        "staging.stg_weather_tumbling",
+        "staging.stg_flight_context",
+        "intermediate.int_airport_grid",
+        "intermediate.int_flights_enriched",
+        "mart.mart_flight_activity",
+        "mart.mart_weather_conditions",
+        "mart.mart_seismic_activity",
+        "mart.mart_flight_context",
+    ]
+
+    def policy_exists(schema, tname, policy_name):
+        cur.execute(
+            """
+            SELECT 1 FROM pg_policies
+            WHERE schemaname = %s
+              AND tablename  = %s
+              AND policyname = %s
+        """,
+            (schema, tname, policy_name),
+        )
+        return cur.fetchone() is not None
+
+    for table in tables:
+        schema, tname = table.split(".")
+
+        cur.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+
+        policy_sr = f"{tname}_service_role_all"
+        if not policy_exists(schema, tname, policy_sr):
+            cur.execute(f"""
+                CREATE POLICY {policy_sr}
+                ON {table}
+                TO service_role
+                USING (true)
+                WITH CHECK (true)
+            """)
+
+        policy_ro = f"{tname}_read_only"
+        if not policy_exists(schema, tname, policy_ro):
+            cur.execute(f"""
+                CREATE POLICY {policy_ro}
+                ON {table}
+                FOR SELECT
+                TO anon, authenticated
+                USING (true)
+            """)
+
+        print(f"  -> RLS enabled: {table}")
+
+    print("✅ RLS configured")
+
+
+def update_env(env_path: str):
+    updates = {
+        "SUPABASE_HOST": POSTGRES_HOST,
+        "SUPABASE_PORT": str(POSTGRES_PORT),
+        "SUPABASE_USER": POSTGRES_USER,
+        "SUPABASE_PASSWORD": POSTGRES_PASSWORD,
+        "SUPABASE_DATABASE": POSTGRES_DATABASE,
+    }
+
+    # Leer el .env existente si existe
+    env_file = pathlib.Path(env_path)
+    if env_file.exists():
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    else:
+        lines = []
+
+    # Actualizar keys existentes o marcarlas como procesadas
+    existing_keys = set()
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#") or "=" not in stripped:
+            new_lines.append(line)
+            continue
+        key = stripped.split("=", 1)[0].strip()
+        if key in updates:
+            new_lines.append(f"{key}={updates[key]}")
+            existing_keys.add(key)
+        else:
+            new_lines.append(line)
+
+    # Appendear keys que no existían
+    for key, value in updates.items():
+        if key not in existing_keys:
+            new_lines.append(f"{key}={value}")
+
+    env_file.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    print(f"✅ .env updated: {env_path}")
+    for key, value in updates.items():
+        masked = value if "PASSWORD" not in key else "***"
+        print(f"   {key}={masked}")
+
+
+def run_realtime():
+    global cur
+
+    tables = [
+        "public.flights",
+        "public.seismics",
+        "public.weather",
+        "public.flights_tumbling",
+        "public.seismics_tumbling",
+        "public.weather_tumbling",
+        "public.flight_context",
+        "public.raw_airports",
+        "public.raw_airlines",
+        "public.raw_planes",
+        "public.raw_routes",
+        "staging.stg_flights",
+        "staging.stg_seismics",
+        "staging.stg_weather",
+        "staging.stg_airports",
+        "staging.stg_airlines",
+        "staging.stg_routes",
+        "staging.stg_flights_tumbling",
+        "staging.stg_seismics_tumbling",
+        "staging.stg_weather_tumbling",
+        "staging.stg_flight_context",
+        "intermediate.int_airport_grid",
+        "intermediate.int_flights_enriched",
+        "mart.mart_flight_activity",
+        "mart.mart_weather_conditions",
+        "mart.mart_seismic_activity",
+        "mart.mart_flight_context",
+    ]
+
+    for table in tables:
+        _, tname = table.split(".")
+
+        # Verificar si ya está en la publication
+        cur.execute(
+            """
+            SELECT 1 FROM pg_publication_tables
+            WHERE pubname = 'supabase_realtime'
+              AND schemaname = 'public'
+              AND tablename = %s
+        """,
+            (tname,),
+        )
+
+        if cur.fetchone() is None:
+            cur.execute(f"ALTER PUBLICATION supabase_realtime ADD TABLE {table}")
+            print(f"  -> Realtime enabled: {table}")
+        else:
+            print(f"  -> Already realtime: {table}")
+
+    print("✅ Realtime configured")
+
+
 if __name__ == "__main__":
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.join(script_dir, "..", "..", ".env")
+
     wait_for_db()
     run_migrations()
+    run_rls()
+    run_realtime()
+    update_env(env_path)
+
     cur.close()
     conn.close()
