@@ -183,6 +183,8 @@ def run_migrations():
         )
         """,
         # ── public: flight_context ────────────────────────────────────
+        # Column order matches flight_context_tumbling.py sink DDL exactly
+        # (Flink JDBC writes by position, not by name)
         """
         CREATE TABLE IF NOT EXISTS public.flight_context (
             window_start        TIMESTAMP,
@@ -190,10 +192,11 @@ def run_migrations():
             grid_lat            INTEGER,
             grid_lon            INTEGER,
             flight_count        BIGINT,
+            avg_altitude_m      DOUBLE PRECISION,
             airborne_count      BIGINT,
-            nearby_eq_count     INTEGER,
+            nearby_eq_count     BIGINT,
             max_eq_magnitude    DOUBLE PRECISION,
-            tsunami_count       INTEGER,
+            tsunami_count       BIGINT,
             avg_temperature_c   DOUBLE PRECISION,
             avg_windgusts_ms    DOUBLE PRECISION,
             avg_visibility_m    DOUBLE PRECISION,
@@ -400,69 +403,6 @@ def run_migrations():
             distance_km                 NUMERIC,
             route_type                  TEXT,
             _loaded_at                  TIMESTAMP
-        )
-        """,
-        # ── staging: stg_flights_tumbling ─────────────────────────────
-        """
-        CREATE TABLE IF NOT EXISTS staging.stg_flights_tumbling (
-            window_start    TIMESTAMP,
-            window_end      TIMESTAMP,
-            origin_country  TEXT,
-            flight_count    BIGINT,
-            airborne_count  BIGINT,
-            avg_altitude_m  DOUBLE PRECISION,
-            avg_velocity_ms DOUBLE PRECISION,
-            PRIMARY KEY (window_start, window_end, origin_country)
-        )
-        """,
-        # ── staging: stg_seismics_tumbling ────────────────────────────
-        """
-        CREATE TABLE IF NOT EXISTS staging.stg_seismics_tumbling (
-            window_start    TIMESTAMP,
-            window_end      TIMESTAMP,
-            region          TEXT,
-            avg_magnitude   DOUBLE PRECISION,
-            max_magnitude   DOUBLE PRECISION,
-            event_count     BIGINT,
-            tsunami_count   BIGINT,
-            avg_depth       DOUBLE PRECISION,
-            PRIMARY KEY (window_start, window_end, region)
-        )
-        """,
-        # ── staging: stg_weather_tumbling ─────────────────────────────
-        """
-        CREATE TABLE IF NOT EXISTS staging.stg_weather_tumbling (
-            window_start        TIMESTAMP,
-            window_end          TIMESTAMP,
-            region_name         TEXT,
-            avg_temperature_c   DOUBLE PRECISION,
-            min_temperature_c   DOUBLE PRECISION,
-            max_temperature_c   DOUBLE PRECISION,
-            avg_windspeed_ms    DOUBLE PRECISION,
-            avg_windgusts_ms    DOUBLE PRECISION,
-            avg_visibility_m    DOUBLE PRECISION,
-            avg_humidity_pct    DOUBLE PRECISION,
-            total_precip_mm     DOUBLE PRECISION,
-            snapshot_count      BIGINT,
-            PRIMARY KEY (window_start, window_end, region_name)
-        )
-        """,
-        # ── staging: stg_flight_context ───────────────────────────────
-        """
-        CREATE TABLE IF NOT EXISTS staging.stg_flight_context (
-            window_start        TIMESTAMP,
-            window_end          TIMESTAMP,
-            grid_lat            INTEGER,
-            grid_lon            INTEGER,
-            flight_count        BIGINT,
-            airborne_count      BIGINT,
-            nearby_eq_count     INTEGER,
-            max_eq_magnitude    DOUBLE PRECISION,
-            tsunami_count       INTEGER,
-            avg_temperature_c   DOUBLE PRECISION,
-            avg_windgusts_ms    DOUBLE PRECISION,
-            avg_visibility_m    DOUBLE PRECISION,
-            PRIMARY KEY (window_start, window_end, grid_lat, grid_lon)
         )
         """,
         # ── intermediate: int_airport_grid ────────────────────────────
@@ -688,7 +628,7 @@ def run_migrations():
 
     for stmt in statements:
         label = stmt.strip().splitlines()[0].strip()
-        print(f"  -> {label}")
+        print(f"  -> {label[:-2]}")
         cur.execute(stmt)
 
     print("✅ Tables created")
@@ -725,10 +665,6 @@ def run_rls():
         "staging.stg_airports",
         "staging.stg_airlines",
         "staging.stg_routes",
-        "staging.stg_flights_tumbling",
-        "staging.stg_seismics_tumbling",
-        "staging.stg_weather_tumbling",
-        "staging.stg_flight_context",
         "intermediate.int_airport_grid",
         "intermediate.int_flights_enriched",
         "mart.mart_flight_activity",
@@ -843,10 +779,6 @@ def run_realtime():
         "staging.stg_airports",
         "staging.stg_airlines",
         "staging.stg_routes",
-        "staging.stg_flights_tumbling",
-        "staging.stg_seismics_tumbling",
-        "staging.stg_weather_tumbling",
-        "staging.stg_flight_context",
         "intermediate.int_airport_grid",
         "intermediate.int_flights_enriched",
         "mart.mart_flight_activity",

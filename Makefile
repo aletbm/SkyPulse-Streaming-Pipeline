@@ -9,14 +9,14 @@ endif
         terraform-deploy terraform-destroy
 
 # --- Paths ---
-JOB_MANAGER    = deploy-jobmanager-1
-REDPANDA_SERVICE 	   = deploy-redpanda-1
-PATH_PRODUCERS = src/producers
-PATH_CONSUMERS = src/consumers
-PATH_JOBS      = src/jobs
-PATH_DEPLOY    = deploy
-PATH_INFRA     = infra
-PATH_SCRIPTS   = scripts
+JOB_MANAGER    		= 	deploy-jobmanager-1
+REDPANDA_SERVICE 	= 	deploy-redpanda-1
+PATH_PRODUCERS 		= 	src/producers
+PATH_CONSUMERS 		= 	src/consumers
+PATH_JOBS      		= 	src/jobs
+PATH_DEPLOY    		= 	deploy
+PATH_INFRA     		= 	infra
+PATH_SCRIPTS   		= 	scripts
 
 # --- Dev ---
 install:

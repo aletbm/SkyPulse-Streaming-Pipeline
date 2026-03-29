@@ -1,5 +1,5 @@
 resource "supabase_settings" "skypulse" {
-  project_ref = supabase_project.skypulse.id   # toma el ref del proyecto recién creado
+  project_ref = supabase_project.skypulse.id
 
   api = jsonencode({
     db_schema            = "public,staging,intermediate,mart"

@@ -209,6 +209,7 @@ __marimo__/
 
 
 .cache.sqlite
+cache.sqlite
 state_seismic.json
 .bruin.yml
 
