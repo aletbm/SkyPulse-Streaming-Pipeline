@@ -44,7 +44,7 @@ CURRENT_VARS = [
     "surface_pressure",
 ]
 
-log = get_logger(__name__)
+log = get_logger("weather_producer")
 
 CACHE_DIR = Path(__file__).parent / "misc"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)

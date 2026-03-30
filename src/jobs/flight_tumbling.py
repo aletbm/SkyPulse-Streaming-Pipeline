@@ -16,7 +16,9 @@ from pyflink.table import EnvironmentSettings, StreamTableEnvironment
 
 load_dotenv()
 
-BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "redpanda:29092")
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
 TOPIC_NAME = os.getenv("TOPIC_FLIGHTS", "flight-feeds")
 
 SUPABASE_HOST = os.getenv("SUPABASE_HOST")
@@ -45,9 +47,12 @@ def create_source(t_env):
             proc_time      AS PROCTIME()
         ) WITH (
             'connector'                    = 'kafka',
-            'properties.bootstrap.servers' = '{BOOTSTRAP_SERVERS}',
+            'properties.bootstrap.servers' = '{SERVER}',
+            'properties.security.protocol' = 'SASL_SSL',
+            'properties.sasl.mechanism'     = 'SCRAM-SHA-256',
+            'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.scram.ScramLoginModule required username="{REDPANDA_USERNAME}" password="{REDPANDA_PASSWORD}";',
             'topic'                        = '{TOPIC_NAME}',
-            'scan.startup.mode'            = 'latest-offset',
+            'scan.startup.mode'            = 'earliest-offset',
             'format'                       = 'json'
         )
     """)

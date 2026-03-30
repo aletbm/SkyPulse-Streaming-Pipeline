@@ -32,7 +32,7 @@ POSTGRES_USER = os.getenv("SUPABASE_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("SUPABASE_PASSWORD", "postgres")
 POSTGRES_DATABASE = os.getenv("SUPABASE_DATABASE", "postgres")
 
-log = get_logger(__name__)
+log = get_logger("weather_consumer")
 
 
 def get_connection():
@@ -61,6 +61,14 @@ def build_consumer() -> KafkaConsumer:
         sasl_plain_username=REDPANDA_USERNAME,
         sasl_plain_password=REDPANDA_PASSWORD,
     )
+
+
+def deduplicate_records(records):
+    unique = {}
+    for r in records:
+        key = (r[0], r[1])  # latitude, longitude
+        unique[key] = r  # se queda con el último
+    return list(unique.values())
 
 
 def insert_batch(cursor, records):
@@ -175,6 +183,7 @@ def run():
             if not msg_pack:
                 if buffer and (time.time() - last_message_time > FLUSH_INTERVAL):
                     log.info(f"flush by timeout — inserting {len(buffer)} records")
+                    buffer = deduplicate_records(buffer)
                     insert_batch(cur, buffer)
                     conn.commit()
                     buffer.clear()
@@ -195,6 +204,7 @@ def run():
                     last_message_time = time.time()
 
                     if len(buffer) >= BATCH_SIZE:
+                        buffer = deduplicate_records(buffer)
                         insert_batch(cur, buffer)
                         buffer.clear()
                         log.info(f"flush by size — inserting {len(buffer)} records")

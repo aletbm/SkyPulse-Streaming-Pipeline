@@ -21,7 +21,10 @@ from pyflink.table import EnvironmentSettings, StreamTableEnvironment
 
 load_dotenv()
 
-BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "redpanda:29092")
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
+
 TOPIC_FLIGHTS = os.getenv("TOPIC_FLIGHTS", "flight-feeds")
 TOPIC_SEISMIC = os.getenv("TOPIC_SEISMIC", "earthquake-feeds")
 TOPIC_WEATHER = os.getenv("TOPIC_WEATHER", "weather-feeds")
@@ -47,9 +50,12 @@ def create_sources(t_env):
             proc_time      AS PROCTIME()
         ) WITH (
             'connector'                    = 'kafka',
-            'properties.bootstrap.servers' = '{BOOTSTRAP_SERVERS}',
+            'properties.bootstrap.servers' = '{SERVER}',
+            'properties.security.protocol' = 'SASL_SSL',
+            'properties.sasl.mechanism'     = 'SCRAM-SHA-256',
+            'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.scram.ScramLoginModule required username="{REDPANDA_USERNAME}" password="{REDPANDA_PASSWORD}";',
             'topic'                        = '{TOPIC_FLIGHTS}',
-            'scan.startup.mode'            = 'latest-offset',
+            'scan.startup.mode'            = 'earliest-offset',
             'format'                       = 'json'
         )
     """)
@@ -67,7 +73,10 @@ def create_sources(t_env):
             WATERMARK FOR event_timestamp AS event_timestamp - INTERVAL '30' SECOND
         ) WITH (
             'connector'                    = 'kafka',
-            'properties.bootstrap.servers' = '{BOOTSTRAP_SERVERS}',
+            'properties.bootstrap.servers' = '{SERVER}',
+            'properties.security.protocol' = 'SASL_SSL',
+            'properties.sasl.mechanism'     = 'SCRAM-SHA-256',
+            'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.scram.ScramLoginModule required username="{REDPANDA_USERNAME}" password="{REDPANDA_PASSWORD}";',
             'topic'                        = '{TOPIC_SEISMIC}',
             'scan.startup.mode'            = 'earliest-offset',
             'format'                       = 'json'
@@ -88,7 +97,10 @@ def create_sources(t_env):
             WATERMARK FOR event_timestamp AS event_timestamp - INTERVAL '60' SECOND
         ) WITH (
             'connector'                    = 'kafka',
-            'properties.bootstrap.servers' = '{BOOTSTRAP_SERVERS}',
+            'properties.bootstrap.servers' = '{SERVER}',
+            'properties.security.protocol' = 'SASL_SSL',
+            'properties.sasl.mechanism'     = 'SCRAM-SHA-256',
+            'properties.sasl.jaas.config'   = 'org.apache.kafka.common.security.scram.ScramLoginModule required username="{REDPANDA_USERNAME}" password="{REDPANDA_PASSWORD}";',
             'topic'                        = '{TOPIC_WEATHER}',
             'scan.startup.mode'            = 'earliest-offset',
             'format'                       = 'json'

@@ -29,7 +29,7 @@ STATE_DIR = Path(__file__).parent / "misc"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 STATE_FILE = STATE_DIR / "state_seismic.json"
 
-log = get_logger(__name__)
+log = get_logger("seismic_producer")
 
 
 def load_last_ts() -> int:

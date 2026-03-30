@@ -28,7 +28,7 @@ POSTGRES_USER = os.getenv("SUPABASE_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("SUPABASE_PASSWORD", "postgres")
 POSTGRES_DATABASE = os.getenv("SUPABASE_DATABASE", "postgres")
 
-log = get_logger(__name__)
+log = get_logger("seismic_consumer")
 
 
 def get_connection():

@@ -13,10 +13,9 @@ RUN uv sync --locked
 
 # Copiar el resto del código
 COPY src/producers/ ./src/producers/
-COPY src/consumers/ ./src/consumers/
 COPY src/models/ ./src/models/
 COPY src/logger.py ./src/logger.py
-COPY src/start.sh ./start.sh
+COPY src/start_producers.sh ./start.sh
 
 # Permisos script
 RUN chmod +x start.sh
@@ -27,3 +26,6 @@ CMD ["./start.sh"]
 
 #docker build -f src/Dockerfile.prod_con -t skypulse .
 #docker run --env-file .env skypulse
+
+#docker tag skypulse aletbm/skypulse:latest
+#docker push aletbm/skypulse:1.0.0

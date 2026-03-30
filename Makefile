@@ -34,6 +34,13 @@ deploy:
 deploy-destroy:
 	docker compose -f $(PATH_DEPLOY)/docker-compose.yml down redpanda jobmanager taskmanager
 
+flink:
+	docker compose -f $(PATH_DEPLOY)/docker-compose.flink.yml build
+	docker compose -f $(PATH_DEPLOY)/docker-compose.flink.yml up
+
+flink-destroy:
+	docker compose -f $(PATH_DEPLOY)/docker-compose.flink.yml down
+
 postgres:
 	docker compose -f $(PATH_DEPLOY)/docker-compose.yml build postgres
 	docker compose -f $(PATH_DEPLOY)/docker-compose.yml up postgres
@@ -54,14 +61,12 @@ clean-topics:
 	docker exec $(REDPANDA_SERVICE) rpk topic create $(TOPIC_WEATHER)
 
 producers:
-	cmd /C "start "SP-SeismicProducer" uv run python $(PATH_PRODUCERS)/seismic_producer.py"
-	cmd /C "start "SP-FlightProducer" uv run python $(PATH_PRODUCERS)/flight_producer.py"
-	cmd /C "start "SP-WeatherProducer" uv run python $(PATH_PRODUCERS)/weather_producer.py"
+	docker build -f src/Dockerfile.producers -t skypulse-producers .
+	docker run --env-file .env -it skypulse-producers
 
 consumers:
-	cmd /C "start "SP-SeismicConsumer" uv run python $(PATH_CONSUMERS)/seismic_consumer.py"
-	cmd /C "start "SP-FlightConsumer" uv run python $(PATH_CONSUMERS)/flight_consumer.py"
-	cmd /C "start "SP-WeatherConsumer" uv run python $(PATH_CONSUMERS)/weather_consumer.py"
+	docker build -f src/Dockerfile.consumers -t skypulse-consumers .
+	docker run --env-file .env -it skypulse-consumers
 
 #http://localhost:8081
 jobs:
@@ -69,16 +74,6 @@ jobs:
 	cmd /C "start "SP-FlightTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/flight_tumbling.py --pyFiles /opt/src"
 	cmd /C "start "SP-WeatherTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/weather_tumbling.py --pyFiles /opt/src"
 	cmd /C "start "SP-FlightContextTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/flight_context_tumbling.py --pyFiles /opt/src"
-
-# Start everything:
-wait-topics:
-	uv run python $(PATH_SCRIPTS)/wait_topics.py
-
-streaming:
-	$(MAKE) producers
-	$(MAKE) consumers
-	$(MAKE) wait-topics
-	$(MAKE) jobs
 
 # --- Terraform ---
 infra-deploy:

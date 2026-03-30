@@ -19,6 +19,7 @@ load_dotenv()
 TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 CLIENT_ID = os.getenv("OPENSKY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("OPENSKY_CLIENT_SECRET")
+USE_AUTH = os.getenv("USE_AUTH", "false").lower() == "true"
 
 SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
 REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
@@ -27,9 +28,9 @@ TOPIC_NAME = os.getenv("TOPIC_FLIGHTS", "flight-feeds")
 
 INTERVAL = 90
 MAX_POSITION_AGE = 60
-TOKEN_REFRESH_MARGIN = 30
+TOKEN_REFRESH_MARGIN = 60
 
-log = get_logger(__name__)
+log = get_logger("flight_producer")
 
 
 class TokenManager:
@@ -43,47 +44,74 @@ class TokenManager:
         return self._refresh()
 
     def _refresh(self) -> str:
-        try:
-            r = requests.post(
-                TOKEN_URL,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": CLIENT_ID,
-                    "client_secret": CLIENT_SECRET,
-                },
-                timeout=10,
-            )
-            r.raise_for_status()
-            data = r.json()
-            self.token = data["access_token"]
-            expires_in = data.get("expires_in", 1800)
-            self.expires_at = datetime.now() + timedelta(
-                seconds=expires_in - TOKEN_REFRESH_MARGIN
-            )
-            log.info("token refreshed")
-            return self.token
-        except Exception as e:
-            log.error(f"failed to refresh token: {e}")
-            raise
+        retries = 6
+
+        for attempt in range(retries):
+            try:
+                r = requests.post(
+                    TOKEN_URL,
+                    data={
+                        "grant_type": "client_credentials",
+                        "client_id": CLIENT_ID,
+                        "client_secret": CLIENT_SECRET,
+                    },
+                    timeout=30,
+                )
+                r.raise_for_status()
+                data = r.json()
+
+                self.token = data["access_token"]
+                expires_in = data.get("expires_in", 1800)
+                self.expires_at = datetime.now() + timedelta(
+                    seconds=expires_in - TOKEN_REFRESH_MARGIN
+                )
+
+                log.info("token refreshed")
+                return self.token
+
+            except Exception as e:
+                wait = 2**attempt
+                log.warning(f"retry {attempt + 1} failed — waiting {wait}s: {e}")
+                time.sleep(wait)
+
+        raise Exception("failed to refresh token after retries")
 
     def headers(self) -> dict:
         return {"Authorization": f"Bearer {self.get_token()}"}
 
 
 def get_flights(tokens: TokenManager) -> dict | None:
+    url = "https://opensky-network.org/api/states/all"
+
+    params = {
+        "extended": 1,
+    }
+
     try:
-        response = requests.get(
-            "https://opensky-network.org/api/states/all",
-            params={"extended": 1},
-            headers=tokens.headers(),
-            timeout=15,
-        )
+        if USE_AUTH:
+            log.info("using AUTH mode")
+
+            response = requests.get(
+                url,
+                params=params,
+                headers=tokens.headers(),
+                timeout=120,
+            )
+
+        else:
+            log.info("using NO-AUTH mode")
+
+            response = requests.get(
+                url,
+                params=params,
+                timeout=120,
+            )
 
         if response.status_code == 429:
             retry_after = int(
-                response.headers.get("X-Rate-Limit-Retry-After-Seconds", 3600)
+                response.headers.get("X-Rate-Limit-Retry-After-Seconds", 60)
             )
-            log.warning(f"rate limit reached — sleeping {retry_after}s")
+            log.warning(f"rate limit — sleeping {retry_after}s")
             time.sleep(retry_after)
             return None
 
@@ -92,10 +120,13 @@ def get_flights(tokens: TokenManager) -> dict | None:
 
     except requests.exceptions.Timeout:
         log.warning("request timeout — skipping cycle")
+
     except requests.exceptions.HTTPError as e:
         log.warning(f"HTTP error: {e} — skipping cycle")
+
     except Exception as e:
         log.error(f"unexpected error: {e}")
+
     return None
 
 
