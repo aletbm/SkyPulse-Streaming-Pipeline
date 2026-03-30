@@ -19,6 +19,7 @@ class Flight:
     velocity: float
     true_track: float
     category: int
+    last_seen: int = 0
 
 
 def safe_int(val, default=0) -> int:

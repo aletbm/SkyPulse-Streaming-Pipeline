@@ -6,6 +6,7 @@ connection: supabase
 
 materialization:
   type: table
+  drop_cascade: true
 
 columns:
 

@@ -422,7 +422,7 @@ def run_migrations():
             PRIMARY KEY (grid_lat, grid_lon)
         )
         """,
-        # ── intermediate: int_flights_enriched ────────────────────────
+        # ── intermediate: int_flights_enriched ───────────────────────
         """
         CREATE TABLE IF NOT EXISTS intermediate.int_flights_enriched (
             icao24                      TEXT                PRIMARY KEY,
@@ -433,14 +433,14 @@ def run_migrations():
             longitude                   DOUBLE PRECISION,
             latitude                    DOUBLE PRECISION,
             geog                        GEOGRAPHY(Point, 4326),
-            grid_lat                    DOUBLE PRECISION,
-            grid_lon                    DOUBLE PRECISION,
             baro_altitude_m             NUMERIC,
             on_ground                   BOOLEAN,
             velocity_ms                 NUMERIC,
             velocity_knots              NUMERIC,
             flight_phase                TEXT,
             current_continent           TEXT,
+            grid_lat                    INTEGER,
+            grid_lon                    INTEGER,
             true_track                  DOUBLE PRECISION,
             category                    INTEGER,
             nearest_airport_name        TEXT,
@@ -585,7 +585,6 @@ def run_migrations():
         """,
     ]
 
-    # Indexes sobre staging/intermediate — pueden fallar si Bruin aún no corrió
     index_statements = [
         """
         CREATE INDEX IF NOT EXISTS idx_stg_airports_geog
@@ -597,7 +596,7 @@ def run_migrations():
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_stg_flights_grid
-            ON staging.stg_flights (latitude, longitude)
+            ON staging.stg_flights (grid_lat, grid_lon)
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_stg_flights_grid_computed
@@ -724,14 +723,12 @@ def update_env(env_path: str):
         "SUPABASE_DATABASE": POSTGRES_DATABASE,
     }
 
-    # Leer el .env existente si existe
     env_file = pathlib.Path(env_path)
     if env_file.exists():
         lines = env_file.read_text(encoding="utf-8").splitlines()
     else:
         lines = []
 
-    # Actualizar keys existentes o marcarlas como procesadas
     existing_keys = set()
     new_lines = []
     for line in lines:
@@ -746,7 +743,6 @@ def update_env(env_path: str):
         else:
             new_lines.append(line)
 
-    # Appendear keys que no existían
     for key, value in updates.items():
         if key not in existing_keys:
             new_lines.append(f"{key}={value}")
@@ -790,7 +786,6 @@ def run_realtime():
     for table in tables:
         _, tname = table.split(".")
 
-        # Verificar si ya está en la publication
         cur.execute(
             """
             SELECT 1 FROM pg_publication_tables

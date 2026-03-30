@@ -10,7 +10,7 @@ depends:
   - intermediate.int_airport_grid
 
 materialization:
-  type: table
+  type: view
 
 @bruin */
 

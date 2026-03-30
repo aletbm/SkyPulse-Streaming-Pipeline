@@ -19,8 +19,12 @@ load_dotenv()
 TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 CLIENT_ID = os.getenv("OPENSKY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("OPENSKY_CLIENT_SECRET")
-SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
 TOPIC_NAME = os.getenv("TOPIC_FLIGHTS", "flight-feeds")
+
 INTERVAL = 90
 MAX_POSITION_AGE = 60
 TOKEN_REFRESH_MARGIN = 30
@@ -98,6 +102,10 @@ def get_flights(tokens: TokenManager) -> dict | None:
 producer = KafkaProducer(
     bootstrap_servers=[SERVER],
     value_serializer=flight_serializer,
+    security_protocol="SASL_SSL",
+    sasl_mechanism="SCRAM-SHA-256",
+    sasl_plain_username=REDPANDA_USERNAME,
+    sasl_plain_password=REDPANDA_PASSWORD,
 )
 
 
@@ -132,6 +140,8 @@ def run():
             if flight is None:
                 skipped += 1
                 continue
+
+            flight.last_seen = snapshot_ts
 
             producer.send(TOPIC_NAME, value=flight)
             cycle_count += 1

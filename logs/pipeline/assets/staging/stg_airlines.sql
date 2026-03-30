@@ -8,6 +8,7 @@ depends:
 
 materialization:
   type: table
+  drop_cascade: true
 
 columns:
   - name: airline_id

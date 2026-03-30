@@ -12,6 +12,7 @@ depends:
 
 materialization:
   type: table
+  drop_cascade: true
 
 @bruin */
 

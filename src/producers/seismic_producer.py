@@ -19,7 +19,10 @@ load_dotenv()
 DAY_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 HOUR_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
 INTERVAL = 60
-SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
+
 TOPIC_NAME = os.getenv("TOPIC_SEISMIC", "earthquake-feeds")
 
 STATE_DIR = Path(__file__).parent / "misc"
@@ -78,6 +81,10 @@ def send_features(features: list, last_ts: int) -> tuple[int, int]:
 producer = KafkaProducer(
     bootstrap_servers=[SERVER],
     value_serializer=earthquake_serializer,
+    security_protocol="SASL_SSL",
+    sasl_mechanism="SCRAM-SHA-256",
+    sasl_plain_username=REDPANDA_USERNAME,
+    sasl_plain_password=REDPANDA_PASSWORD,
 )
 
 

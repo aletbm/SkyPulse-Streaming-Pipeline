@@ -17,7 +17,9 @@ from models.weather import parse_weather, weather_serializer
 
 load_dotenv()
 
-SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
 TOPIC_NAME = os.getenv("TOPIC_WEATHER", "weather-feeds")
 INTERVAL = 600
 
@@ -172,6 +174,10 @@ GRID = generate_grid()
 producer = KafkaProducer(
     bootstrap_servers=[SERVER],
     value_serializer=weather_serializer,
+    security_protocol="SASL_SSL",
+    sasl_mechanism="SCRAM-SHA-256",
+    sasl_plain_username=REDPANDA_USERNAME,
+    sasl_plain_password=REDPANDA_PASSWORD,
 )
 
 if __name__ == "__main__":

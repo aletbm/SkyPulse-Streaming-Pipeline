@@ -17,7 +17,9 @@ from models.weather import weather_deserializer
 
 load_dotenv()
 
-SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
 TOPIC_NAME = os.getenv("TOPIC_WEATHER", "weather-feeds")
 GROUP_ID = "weather"
 
@@ -53,6 +55,11 @@ def build_consumer() -> KafkaConsumer:
         auto_offset_reset="earliest",
         group_id=GROUP_ID,
         value_deserializer=weather_deserializer,
+        consumer_timeout_ms=10000,
+        security_protocol="SASL_SSL",
+        sasl_mechanism="SCRAM-SHA-256",
+        sasl_plain_username=REDPANDA_USERNAME,
+        sasl_plain_password=REDPANDA_PASSWORD,
     )
 
 

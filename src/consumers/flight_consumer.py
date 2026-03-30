@@ -18,7 +18,9 @@ from models.flight import flight_deserializer
 
 load_dotenv()
 
-SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
+REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
+REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
 TOPIC_NAME = os.getenv("TOPIC_FLIGHTS", "flight-feeds")
 GROUP_ID = "flights"
 
@@ -54,7 +56,40 @@ def build_consumer() -> KafkaConsumer:
         auto_offset_reset="earliest",
         group_id=GROUP_ID,
         value_deserializer=flight_deserializer,
+        consumer_timeout_ms=10000,
+        security_protocol="SASL_SSL",
+        sasl_mechanism="SCRAM-SHA-256",
+        sasl_plain_username=REDPANDA_USERNAME,
+        sasl_plain_password=REDPANDA_PASSWORD,
     )
+
+
+def create_temp_table(cursor):
+    cursor.execute("""
+        CREATE TEMP TABLE IF NOT EXISTS current_flights (
+            icao24 TEXT PRIMARY KEY
+        );
+    """)
+
+
+def insert_current_icaos(cursor, icaos):
+    cursor.execute("TRUNCATE current_flights;")
+
+    execute_values(
+        cursor,
+        "INSERT INTO current_flights (icao24) VALUES %s",
+        [(icao,) for icao in icaos],
+    )
+
+
+def delete_missing_flights(cursor):
+    cursor.execute("""
+        DELETE FROM flights f
+        WHERE NOT EXISTS (
+            SELECT 1 FROM current_flights c
+            WHERE c.icao24 = f.icao24
+        )
+    """)
 
 
 def insert_batch(cursor, records):
@@ -95,7 +130,6 @@ def insert_batch(cursor, records):
     """
 
     execute_values(cursor, query, records)
-    return
 
 
 def get_record(flight):
@@ -125,21 +159,32 @@ def run():
     count = 0
 
     buffer = []
+    current_icaos = set()
     last_message_time = time.time()
 
     try:
         while True:
             msg_pack = consumer.poll(timeout_ms=1000)
 
-            # No messages → evaluate flush
+            # 📭 No messages → flush por tiempo
             if not msg_pack:
                 if buffer and (time.time() - last_message_time > FLUSH_INTERVAL):
                     log.info(f"flush by timeout — inserting {len(buffer)} records")
+
+                    create_temp_table(cur)
+                    insert_current_icaos(cur, current_icaos)
+
                     insert_batch(cur, buffer)
+
+                    log.info("deleting flights not in current snapshot")
+                    delete_missing_flights(cur)
+
                     buffer.clear()
+                    current_icaos.clear()
+
                 continue
 
-            # There are messages
+            # 📦 Hay mensajes
             for tp, messages in msg_pack.items():
                 for message in messages:
                     flight = message.value
@@ -152,20 +197,34 @@ def run():
 
                     record = get_record(flight)
                     buffer.append(record)
+
+                    # 🔥 trackear snapshot
+                    current_icaos.add(flight.icao24)
+
                     last_message_time = time.time()
 
+                    # 📊 flush por tamaño
                     if len(buffer) >= BATCH_SIZE:
                         log.info(f"flush by size — inserting {len(buffer)} records")
+
+                        create_temp_table(cur)
+                        insert_current_icaos(cur, current_icaos)
+
                         insert_batch(cur, buffer)
+
+                        log.info("deleting flights not in current snapshot")
+                        delete_missing_flights(cur)
+
                         buffer.clear()
+                        current_icaos.clear()
 
                     count += 1
+
                     log.info(
-                        f"""[{count}] {flight.callsign or "N/A"} |
-                        {flight.origin_country} |
-                        lat={flight.latitude}
-                        lon={flight.longitude}
-                        alt={flight.baro_altitude}m"""
+                        f"[{count}] {flight.callsign or 'N/A'} | "
+                        f"{flight.origin_country} | "
+                        f"lat={flight.latitude} lon={flight.longitude} "
+                        f"alt={flight.baro_altitude}m"
                     )
 
     except KafkaError as e:

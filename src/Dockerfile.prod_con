@@ -1,0 +1,29 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Instalar uv con pip
+RUN pip install --no-cache-dir uv
+
+# Copiar archivos de dependencias
+COPY pyproject.toml uv.lock .python-version ./
+
+# Instalar dependencias con uv
+RUN uv sync --locked
+
+# Copiar el resto del código
+COPY src/producers/ ./src/producers/
+COPY src/consumers/ ./src/consumers/
+COPY src/models/ ./src/models/
+COPY src/logger.py ./src/logger.py
+COPY src/start.sh ./start.sh
+
+# Permisos script
+RUN chmod +x start.sh
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["./start.sh"]
+
+#docker build -f src/Dockerfile.prod_con -t skypulse .
+#docker run --env-file .env skypulse
