@@ -4,7 +4,6 @@
     <strong>Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data — from raw API feeds to an interactive cloud dashboard.</strong>
     <br>
     <br>
-    <img src=https://img.shields.io/badge/Bruin-F57C00?style=for-the-badge&logoColor=white>
     <img src=https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white>
     <img src=https://img.shields.io/badge/UV-000000?style=for-the-badge&logo=astral&logoColor=white>
     <img src=https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white>
