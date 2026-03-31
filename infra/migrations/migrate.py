@@ -367,6 +367,7 @@ def run_migrations():
             timezone_offset         DOUBLE PRECISION,
             tz_database             TEXT,
             dst                     TEXT,
+            geog                    GEOGRAPHY(Point, 4326),
             continent               TEXT,
             airport_type            TEXT,
             source                  TEXT,
@@ -603,8 +604,8 @@ def run_migrations():
 
     index_statements = [
         """
-        CREATE INDEX IF NOT EXISTS idx_int_airport_grid_geog
-        ON intermediate.int_airport_grid USING gist (geog)
+        CREATE INDEX IF NOT EXISTS idx_stg_airport_geog
+        ON staging.stg_airports USING gist (geog)
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_airport_grid_lookup
