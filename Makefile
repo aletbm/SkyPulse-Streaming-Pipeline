@@ -62,11 +62,11 @@ clean-topics:
 
 producers:
 	docker build -f src/Dockerfile.producers -t skypulse-producers .
-	docker run --env-file .env -it skypulse-producers
+	docker run --env-file .env -it --rm skypulse-producers
 
 consumers:
 	docker build -f src/Dockerfile.consumers -t skypulse-consumers .
-	docker run --env-file .env -it skypulse-consumers
+	docker run --env-file .env -it --rm skypulse-consumers
 
 #http://localhost:8081
 jobs:

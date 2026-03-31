@@ -29,6 +29,20 @@ POSTGRES_PASSWORD = outputs["db_password"]
 POSTGRES_DATABASE = "postgres"
 
 
+def kill_idle_transactions(conn_string: str):
+    with psycopg2.connect(conn_string) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT pg_terminate_backend(pid)
+                FROM pg_stat_activity
+                WHERE state = 'idle in transaction'
+                  AND query_start < NOW() - INTERVAL '1 minute'
+                  AND pid <> pg_backend_pid();
+            """)
+            count = cur.rowcount
+    print(f"Terminated {count} idle transaction(s)")
+
+
 def get_connection():
     conn = psycopg2.connect(
         host=POSTGRES_HOST,
@@ -353,7 +367,6 @@ def run_migrations():
             timezone_offset         DOUBLE PRECISION,
             tz_database             TEXT,
             dst                     TEXT,
-            geog                    GEOGRAPHY(Point, 4326),
             continent               TEXT,
             airport_type            TEXT,
             source                  TEXT,
@@ -583,12 +596,15 @@ def run_migrations():
             PRIMARY KEY (window_start, window_end, grid_lat, grid_lon)
         )
         """,
+        "ALTER ROLE postgres SET statement_timeout = '240s'",
+        "ALTER ROLE postgres SET idle_in_transaction_session_timeout = '30s'",
+        "ALTER ROLE postgres SET lock_timeout = '15s'",
     ]
 
     index_statements = [
         """
-        CREATE INDEX IF NOT EXISTS idx_stg_airports_geog
-            ON staging.stg_airports USING gist (geog)
+        CREATE INDEX IF NOT EXISTS idx_int_airport_grid_geog
+        ON intermediate.int_airport_grid USING gist (geog)
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_airport_grid_lookup
@@ -622,6 +638,15 @@ def run_migrations():
         """
         CREATE INDEX IF NOT EXISTS idx_stg_airlines_icao
             ON staging.stg_airlines (icao_code)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_raw_airports_coords
+        ON public.raw_airports (latitude, longitude)
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_raw_airports_type
+        ON public.raw_airports (airport_type);
         """,
     ]
 
@@ -809,7 +834,14 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     env_path = os.path.join(script_dir, "..", "..", ".env")
 
+    conn_string = (
+        f"host={POSTGRES_HOST} port={POSTGRES_PORT} "
+        f"dbname={POSTGRES_DATABASE} user={POSTGRES_USER} "
+        f"password={POSTGRES_PASSWORD} sslmode=require"
+    )
+
     wait_for_db()
+    kill_idle_transactions(conn_string)
     run_migrations()
     run_rls()
     run_realtime()

@@ -11,7 +11,7 @@ load_dotenv()
 
 @st.cache_resource
 def get_connection():
-    return psycopg2.connect(
+    conn = psycopg2.connect(
         host=os.getenv("SUPABASE_HOST"),
         port=int(os.getenv("SUPABASE_PORT", 5432)),
         user=os.getenv("SUPABASE_USER"),
@@ -20,6 +20,8 @@ def get_connection():
         sslmode="require",
         connect_timeout=10,
     )
+    conn.autocommit = True
+    return conn
 
 
 def query(sql: str, params=None) -> pd.DataFrame:

@@ -81,7 +81,6 @@ def build_live_deck(
 ) -> pdk.Deck:
     layers: list = []
 
-    # ── Weather heatmap ────────────────────────────────────────────────────────
     if show_weather and not weather.empty:
         layers.append(
             pdk.Layer(

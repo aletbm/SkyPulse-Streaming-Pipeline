@@ -8,6 +8,7 @@ depends:
 
 materialization:
   type: table
+  strategy: truncate+insert
 
 @bruin */
 
@@ -30,14 +31,6 @@ SELECT
     timezone_offset,
     NULLIF(TRIM(tz_database), '')           AS tz_database,
     dst,
-
-    -- 🔥 CLAVE: columna geoespacial lista
-    CAST(
-        ST_SetSRID(
-            ST_MakePoint(longitude, latitude),
-            4326
-        ) AS geography
-    ) AS geog,
 
     CASE
         WHEN country IN (

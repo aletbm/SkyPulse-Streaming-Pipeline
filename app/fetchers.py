@@ -43,7 +43,9 @@ def fetch_flights() -> pd.DataFrame:
             f"{int(r['baro_altitude'])}m | {int(r['velocity'])}m/s | "
             f"{r['flight_phase']}"
             + (
-                f" | {pd.to_datetime(r['time_position']).strftime('%H:%M:%S UTC')}"
+                f""" | {
+                    pd.to_datetime(r["time_position"]).strftime("%Y-%m-%d %H:%M UTC")
+                }"""
                 if pd.notna(r["time_position"])
                 else ""
             )
@@ -244,11 +246,6 @@ def fetch_top_countries() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def fetch_active_routes() -> pd.DataFrame:
-    """
-    Rutas activas: cruza vuelos en aire con stg_routes por airline_code.
-    Devuelve origin/destination lat-lon para ArcLayer.
-    Limitado a 300 rutas para no saturar el mapa.
-    """
     df = query("""
         SELECT DISTINCT ON (r.origin_code, r.destination_code)
             r.origin_code,
