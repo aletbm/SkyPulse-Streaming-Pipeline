@@ -1,7 +1,7 @@
 <div align="center">
     <img width=400px src=./assets/images/skypulse_logo.svg>
     <h1> SkyPulse - Streaming Pipeline </h1>
-    <strong>Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data - from raw API feeds to analytics-ready marts.</strong>
+    <strong>Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data — from raw API feeds to an interactive cloud dashboard.</strong>
     <br>
     <br>
     <img src=https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white>
@@ -13,6 +13,7 @@
     <img src=https://img.shields.io/badge/Redpanda-FF3C3C?style=for-the-badge&logo=redpanda&logoColor=white>
     <img src=https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white>
     <img src=https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white>
+    <img src=https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white>
     <img src=https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white>
     <img src=https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white>
     <img src=https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white>
@@ -21,15 +22,45 @@
 
 ---
 
+## 🌐 Project Links
+
+| Resource | URL |
+|---|---|
+| **Live Dashboard** | *[Streamlit Cloud](https://skypulse-streaming-pipeline.streamlit.app)* |
+
+---
+
+## 💡 Purpose & Problem Statement
+
+### The Problem
+
+Monitoring global airspace in real time requires fusing data from multiple independent, heterogeneous sources — flight transponder feeds, atmospheric sensors, and seismic networks — that each operate at different polling frequencies, use different geographic references, and follow different update semantics (upsert vs. append). No single API provides this cross-domain view, and building it naively (periodic batch pulls into a flat database) introduces staleness windows measured in minutes and loses all the analytical richness that emerges from correlating the streams.
+
+The fundamental challenge is not just ingestion — it's making the data **useful together in near real-time**: knowing that a given 10-degree grid cell currently has 40 active aircraft, a M5.8 earthquake 200km away, and storm-level wind gusts is operationally meaningful in a way that no individual stream conveys on its own. Building that composite view requires a streaming architecture that can join, window, and enrich across streams continuously, not on a daily batch schedule.
+
+### What SkyPulse Solves
+
+SkyPulse is an end-to-end streaming data platform that:
+
+- **Continuously ingests** three independent real-world data streams (flights, weather, seismic) at source cadence — from 60 seconds to 15 minutes — into a Kafka-compatible broker (Redpanda Cloud)
+- **Processes streams in real time** with Apache Flink tumbling-window jobs that compute 5-minute aggregates and perform cross-stream spatial joins on a shared 10-degree geographic grid
+- **Persists and serves** all layers (raw landing → staged → intermediate → mart) in Supabase (PostgreSQL), with PostGIS for geospatial operations and Supabase Realtime for live push to the dashboard
+- **Transforms and validates** data through a Bruin pipeline (running in Bruin Cloud) that enforces column-level data quality checks at every layer
+- **Surfaces everything** in a live Streamlit dashboard deployed to Streamlit Cloud — with interactive maps, time-series charts, risk score heatmaps, and per-flight context
+
+The result is a fully cloud-native, infrastructure-as-code pipeline that goes from raw API responses to an interactive analytical dashboard with end-to-end latency measured in seconds.
+
+---
+
 ## About the Project
 
 SkyPulse is an end-to-end streaming data pipeline that continuously ingests three independent real-world data streams:
 
-- **Flight positions** - live aircraft states from the [OpenSky Network](https://opensky-network.org/) REST API (ICAO 24-bit transponder data, ~90s polling cadence)
-- **Weather snapshots** - current atmospheric conditions across a global grid of ~500+ points sourced from the [Open-Meteo](https://open-meteo.com/) API (15-min cadence)
-- **Seismic events** - real-time earthquake feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) (60s polling, event-time deduplication)
+- **Flight positions** — live aircraft states from the [OpenSky Network](https://opensky-network.org/) REST API (ICAO 24-bit transponder data, ~90s polling cadence)
+- **Weather snapshots** — current atmospheric conditions across a global grid of ~500+ points sourced from the [Open-Meteo](https://open-meteo.com/) API (15-min cadence)
+- **Seismic events** — real-time earthquake feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) (60s polling, event-time deduplication)
 
-Each stream is independently produced into a Redpanda (Kafka-compatible) broker, consumed into a Supabase (PostgreSQL) landing zone, and processed by Apache Flink tumbling-window jobs that compute 5-minute aggregates. A Bruin pipeline then transforms raw landing tables into a layered analytical model (staging → intermediate → marts), producing enriched, cross-stream outputs including a composite geospatial risk score per 10-degree grid cell.
+Each stream is independently produced into a Redpanda Cloud (Kafka-compatible) broker, consumed into a Supabase (PostgreSQL) landing zone, and processed by Apache Flink tumbling-window jobs that compute 5-minute aggregates. A Bruin pipeline running in Bruin Cloud then transforms raw landing tables into a layered analytical model (staging → intermediate → marts), producing enriched, cross-stream outputs including a composite geospatial risk score per 10-degree grid cell. A Streamlit dashboard deployed to Streamlit Cloud visualizes all streams live.
 
 The combination of these three domains makes real-time enrichment genuinely meaningful: a grid cell with high air traffic, a nearby M6+ earthquake, and storm-level wind gusts tells a different operational story than any single stream in isolation.
 
@@ -39,9 +70,9 @@ The combination of these three domains makes real-time enrichment genuinely mean
 
 The project is designed around three technical goals:
 
-**Scalability.** Producers, consumers, and Flink jobs run as independent processes with no shared state. Redpanda handles backpressure. Flink checkpointing (10s interval) ensures exactly-once semantics for the JDBC sinks. Batch sizes and flush intervals are tunable per consumer.
+**Scalability.** Producers, consumers, and Flink jobs run as independent containerized processes with no shared state. Redpanda Cloud handles backpressure. Flink checkpointing (10s interval) ensures exactly-once semantics for the JDBC sinks. Batch sizes and flush intervals are tunable per consumer.
 
-**Automation.** A `Makefile` orchestrates the full lifecycle: infrastructure provisioning, topic management, and launching all six streaming processes (3 producers + 3 consumers) plus four Flink jobs in a single `make streaming` target. A GitHub Actions CI pipeline enforces linting on every push to `develop` and `main`.
+**Automation.** A `Makefile` orchestrates the full lifecycle: infrastructure provisioning, Docker builds for producers and consumers, topic management, and launching all streaming processes plus four Flink jobs. A GitHub Actions CI pipeline enforces linting on every push to `develop` and `main`.
 
 **Observability.** Structured logging is implemented across all producers, consumers, and Flink jobs. Flink's web UI (`:8081`) exposes job graphs, checkpoint metrics, and backpressure indicators. Bruin column-level checks and custom `row_count_positive` assertions validate data quality at every transformation layer.
 
@@ -53,22 +84,23 @@ The project is designed around three technical goals:
 |---|---|
 | **Language** | Python 3.12, SQL |
 | **Dependency Management** | `uv` |
-| **Streaming Broker** | Redpanda v25.3.9 (Kafka-compatible) |
+| **Streaming Broker** | Redpanda Cloud (Kafka-compatible) |
 | **Stream Processing** | Apache Flink 2.2.0 + PyFlink |
 | **Landing & Serving DB** | Supabase (PostgreSQL 18 via `psycopg2`) |
-| **Transformation Pipeline** | Bruin |
+| **Transformation Pipeline** | Bruin (running in Bruin Cloud) |
+| **Dashboard** | Streamlit (deployed to Streamlit Cloud) |
 | **Infrastructure as Code** | Terraform (`supabase/supabase` provider) |
-| **Containerization** | Docker, Docker Compose |
+| **Containerization** | Docker, Docker Compose (producers & consumers) |
 | **CI/CD** | GitHub Actions |
 | **Linting** | Ruff, pre-commit |
 | **Data Validation** | Bruin column checks + custom SQL assertions |
-| **External APIs** | OpenSky Network, Open-Meteo, USGS Earthquake Feeds, OpenFlights (airports, airlines, planes) |
+| **External APIs** | OpenSky Network (OAuth2), Open-Meteo, USGS Earthquake Feeds, OpenFlights (airports, airlines, planes) |
 
 ---
 
 ## Architecture
 
-The pipeline is organized into four logical layers:
+The pipeline is organized into five logical layers:
 
 ### 0. Infrastructure as Code (Terraform + Migrations)
 
@@ -99,21 +131,25 @@ infra/
 
 The entire sequence runs as a single `make infra-deploy` target (which calls `infra/setup.bat`), meaning a fresh environment goes from zero to fully-wired Supabase in one command.
 
-### 1. Ingestion (Producers)
+### 1. Ingestion (Producers — Containerized)
 
-Three independent Python producers run continuously and publish JSON-serialized messages to dedicated Redpanda topics:
+Three independent Python producers run continuously in Docker containers and publish JSON-serialized messages to dedicated Redpanda Cloud topics:
 
 | Producer | Topic | Source | Cadence |
 |---|---|---|---|
-| `flight_producer.py` | `flight-feeds` | OpenSky Network API (OAuth2) | 90s |
-| `weather_producer.py` | `weather-feeds` | Open-Meteo API (~500 grid points) | 600s |
-| `seismic_producer.py` | `earthquake-feeds` | USGS GeoJSON feeds | 60s |
+| `flight_producer.py` | `skypulse.flights` | OpenSky Network API (OAuth2) | 90s |
+| `weather_producer.py` | `skypulse.weather` | Open-Meteo API (~500 grid points) | 600s |
+| `seismic_producer.py` | `skypulse.seismic` | USGS GeoJSON feeds | 60s |
 
-Each producer uses a Pydantic-backed dataclass model (`Flight`, `Weather`, `Earthquake`) for parsing and serialization. The seismic producer implements state-based deduplication via a local JSON file (`state_seismic.json`) to avoid re-publishing events already seen in the USGS daily feed. The flight producer handles OAuth2 token refresh automatically, with rate-limit backoff on HTTP 429.
+Each producer uses a Pydantic-backed dataclass model (`Flight`, `Weather`, `Earthquake`) for parsing and serialization. The seismic producer implements state-based deduplication via a local JSON file (`state_seismic.json`) to avoid re-publishing events already seen in the USGS daily feed. The flight producer handles OAuth2 token refresh automatically (controlled by `USE_AUTH` env variable), with rate-limit backoff on HTTP 429.
 
-### 2. Landing (Consumers → Supabase `public` schema)
+Producers connect to Redpanda Cloud using SASL/SCRAM authentication via `REDPANDA_SERVER`, `REDPANDA_USERNAME`, and `REDPANDA_PASSWORD`.
 
-Three Kafka consumers write raw records to Supabase, one per topic:
+**Screenshot — Producers running:**
+
+### 2. Landing (Consumers → Supabase `public` schema — Containerized)
+
+Three Kafka consumers run in Docker containers and write raw records to Supabase, one per topic:
 
 | Consumer | Target Table | Strategy |
 |---|---|---|
@@ -122,6 +158,8 @@ Three Kafka consumers write raw records to Supabase, one per topic:
 | `seismic_consumer.py` | `public.seismics` | Row-by-row insert (append-only) |
 
 Flights and weather are upserted because they represent the latest known state of a moving object or grid point. Seismic events are append-only since each earthquake is a distinct occurrence.
+
+**Screenshot — Consumers running:**
 
 **Static reference ingestion via Bruin.** Alongside the three real-time streams, Bruin is also responsible for loading static reference data from [OpenFlights](https://openflights.org/) into the `public` schema. Four Bruin Python assets (`ingest_airports.py`, `ingest_airlines.py`, `ingest_planes.py`, `ingest_routes.py`) fetch CSV data directly from the OpenFlights GitHub repository and materialize it as tables in Supabase:
 
@@ -132,37 +170,80 @@ Flights and weather are upserted because they represent the latest known state o
 | `ingest_planes.py` | `public.raw_planes` | ~200 aircraft types |
 | `ingest_routes.py` | `public.raw_routes` | ~67,000 routes |
 
-These tables feed the staging layer (`stg_airports`, `stg_airlines`) and ultimately power the airport proximity enrichment and airline attribution in `int_flights_enriched` and the flight activity marts. Bruin handles this ingestion as `type: python` assets with `materialization: table`, meaning it recreates the tables on each pipeline run - keeping reference data fresh without any manual ETL.
+These tables feed the staging layer (`stg_airports`, `stg_airlines`) and ultimately power the airport proximity enrichment and airline attribution in `int_flights_enriched` and the flight activity marts. Bruin handles this ingestion as `type: python` assets with `materialization: table`, meaning it recreates the tables on each pipeline run — keeping reference data fresh without any manual ETL.
 
-### 3. Processing (Apache Flink - tumbling window jobs)
+### 3. Processing (Apache Flink — Tumbling Window Jobs)
 
 Four PyFlink jobs run inside the Flink cluster (JobManager + TaskManager containers):
 
 | Job | Input Topic(s) | Output Table | Window |
 |---|---|---|---|
-| `flight_tumbling.py` | `flight-feeds` | `flights_tumbling` | 5 min PROCTIME |
-| `seismic_tumbling.py` | `earthquake-feeds` | `seismics_tumbling` | 5 min event time |
-| `weather_tumbling.py` | `weather-feeds` | `weather_tumbling` | 5 min event time |
+| `flight_tumbling.py` | `skypulse.flights` | `flights_tumbling` | 5 min PROCTIME |
+| `seismic_tumbling.py` | `skypulse.seismic` | `seismics_tumbling` | 5 min event time |
+| `weather_tumbling.py` | `skypulse.weather` | `weather_tumbling` | 5 min event time |
 | `flight_context_tumbling.py` | all three topics | `flight_context` | 5 min PROCTIME |
 
-`flight_context_tumbling.py` is the core cross-stream job. It joins flights, seismic events, and weather readings on a shared 10-degree lat/lon grid cell - a deliberately coarse spatial key that avoids a full cross-join while preserving geographic relevance. Watermarks are set at 30s for seismic (low-latency USGS feed) and 60s for weather (15-min update cycle).
+`flight_context_tumbling.py` is the core cross-stream job. It joins flights, seismic events, and weather readings on a shared 10-degree lat/lon grid cell — a deliberately coarse spatial key that avoids a full cross-join while preserving geographic relevance. Watermarks are set at 30s for seismic (low-latency USGS feed) and 60s for weather (15-min update cycle).
 
 All jobs write to Supabase via the Flink JDBC connector (`flink-connector-jdbc-postgres`) and enable checkpointing at 10s intervals.
 
-### 4. Serving (Bruin pipeline - `staging` → `intermediate` → `mart`)
+![job](./assets/images/flink_job.png)
 
-The Bruin pipeline (`pipeline.yml`, scheduled every 2 minutes) transforms landing tables into three analytical layers:
+### 4. Serving (Bruin Cloud Pipeline — `staging` → `intermediate` → `mart`)
 
-**Staging** - clean, typed, geo-enriched views of each raw table. Key transformations include: geospatial `geography` column creation via PostGIS (`ST_MakePoint`), continent classification, 10-degree grid cell assignment, WMO weather code labels, wind severity bands, and magnitude classification for seismic events.
+The Bruin pipeline (`pipeline.yml`, running in Bruin Cloud, scheduled every 2 minutes) transforms landing tables into three analytical layers:
 
-**Intermediate** - pre-joined, performance-optimized tables. `int_airport_grid` builds a spatial lookup grid from `stg_airports`. `int_flights_enriched` joins live flights with the nearest airport (via grid cell) and infers flight phase (`on_ground`, `takeoff_landing`, `climbing_descending`, `cruising`) and airline from country of origin.
+**Staging** — clean, typed, geo-enriched views of each raw table. Key transformations include: geospatial `geography` column creation via PostGIS (`ST_MakePoint`), continent classification, 10-degree grid cell assignment, WMO weather code labels, wind severity bands, and magnitude classification for seismic events.
 
-**Marts** - four analytics-ready tables:
+**Intermediate** — pre-joined, performance-optimized tables. `int_airport_grid` builds a spatial lookup grid from `stg_airports`. `int_flights_enriched` joins live flights with the nearest airport (via grid cell) and infers flight phase (`on_ground`, `takeoff_landing`, `climbing_descending`, `cruising`) and airline from country of origin.
 
-- `mart.mart_flight_activity` - global flight counts by country and continent, enriched with airline metadata, flight phase breakdown, and a 2-hour trend window.
-- `mart.mart_weather_conditions` - regional weather aggregates with condition summaries, wind alerts, and temperature trends from tumbling windows.
-- `mart.mart_seismic_activity` - seismic statistics by region over 24h, including magnitude class distribution, risk level classification, and hourly event trends.
-- `mart.mart_flight_context` - the cross-stream enrichment mart. One row per active 10-degree grid cell, combining Flink window aggregates (flights + seismic + weather) with live flight phase data and a composite **risk score (0–100)** calculated from airborne density, seismic magnitude, wind severity, and visibility.
+**Marts** — four analytics-ready tables:
+
+- `mart.mart_flight_activity` — global flight counts by country and continent, enriched with airline metadata, flight phase breakdown, and a 2-hour trend window.
+- `mart.mart_weather_conditions` — regional weather aggregates with condition summaries, wind alerts, and temperature trends from tumbling windows.
+- `mart.mart_seismic_activity` — seismic statistics by region over 24h, including magnitude class distribution, risk level classification, and hourly event trends.
+- `mart.mart_flight_context` — the cross-stream enrichment mart. One row per active 10-degree grid cell, combining Flink window aggregates (flights + seismic + weather) with live flight phase data and a composite **risk score (0–100)** calculated from airborne density, seismic magnitude, wind severity, and visibility.
+
+![Bruin_assets](./assets/images/bruin_assets.png)
+![Bruin_assets_state](./assets/images/bruin_assets_state.png)
+
+### 5. Dashboard (Streamlit Cloud)
+
+A Streamlit app (`app/`) deployed to Streamlit Cloud connects directly to Supabase via `psycopg2` and renders the full analytical output in an interactive interface. Key views include:
+
+- **Global flight map** — live aircraft positions with altitude, velocity, and flight phase overlays (via PyDeck)
+- **Risk score heatmap** — composite 0–100 risk score per grid cell combining air traffic density, seismic activity, and weather severity
+- **Weather dashboard** — regional weather conditions, wind severity alerts, and precipitation totals
+- **Seismic activity** — real-time earthquake feed with magnitude classification, depth, and tsunami flags
+- **Time-series charts** — 5-minute tumbling window aggregates per region (via Altair)
+
+![live_map](./assets/images/live_map.png)
+![analytics](./assets/images/analytics.png)
+![demo](./assets/images/demo.png)
+
+---
+
+## Cloud Infrastructure
+
+### Redpanda Cloud
+
+Topics are hosted in Redpanda Cloud (Kafka-compatible, fully managed). The three topics used are:
+
+| Topic | Description |
+|---|---|
+| `skypulse.flights` | Live aircraft transponder states |
+| `skypulse.seismic` | USGS earthquake events |
+| `skypulse.weather` | Open-Meteo grid snapshots |
+
+Authentication uses SASL/SCRAM over TLS. Producers and consumers connect using `REDPANDA_SERVER`, `REDPANDA_USERNAME`, and `REDPANDA_PASSWORD` from the environment.
+
+![Redpanda Cloud](./assets/images/redpanda_cloud.png)
+
+### Supabase
+
+The Supabase project is fully provisioned via Terraform and migrated via `migrate.py`. It hosts all four schema layers, PostGIS extensions, Row Level Security, and Supabase Realtime for live push to the dashboard.
+
+![Supabase Demo](./assets/images/supabase_demo.png)
 
 ---
 
@@ -547,6 +628,20 @@ SkyPulse-Streaming-Pipeline/
 ├── pyproject.toml                        # uv project + Ruff config
 ├── uv.lock
 │
+├── app/                                  # Streamlit Cloud dashboard
+│   ├── app.py                            # Main Streamlit application
+│   ├── config.py                         # App configuration & constants
+│   ├── config.toml                       # Streamlit theme configuration
+│   ├── database.py                       # Supabase connection helpers
+│   ├── fetchers.py                       # Data fetchers for each mart/layer
+│   ├── map_layers.py                     # PyDeck map layer builders
+│   └── requirements.txt                  # Streamlit Cloud dependencies
+│
+├── assets/
+│   └── images/
+│       ├── aircraft.png
+│       └── skypulse_logo.svg
+│
 ├── infra/
 │   ├── .gitignore                        # Excludes .tfvars, .terraform/, state files
 │   ├── setup.bat                         # One-command provisioning (init → apply → migrate)
@@ -561,32 +656,35 @@ SkyPulse-Streaming-Pipeline/
 │       └── outputs.tf                    # project_ref, project_url (consumed by migrate.py)
 │
 ├── deploy/
-│   ├── docker-compose.yml                # Redpanda, Postgres, Flink JobManager + TaskManager
+│   ├── docker-compose.yml                # Redpanda (local), Postgres (local), Flink cluster
+│   ├── docker-compose.flink.yml          # Standalone Flink compose (alternative)
 │   ├── Dockerfile.flink                  # PyFlink 2.2 + JDBC/Kafka connectors
 │   ├── flink-config.yaml                 # Flink cluster configuration
 │   └── pyproject.flink.toml             # Flink-specific Python dependencies
 │
 ├── src/
+│   ├── Dockerfile.producers              # Container image for all three producers
+│   ├── Dockerfile.consumers              # Container image for all three consumers
 │   ├── logger.py                         # Shared structured logger
 │   ├── models/
 │   │   ├── flight.py                     # Flight dataclass + serializer/deserializer
 │   │   ├── seismic.py                    # Earthquake dataclass + serializer/deserializer
-│   │   └── weather.py                   # Weather dataclass + serializer/deserializer
+│   │   └── weather.py                    # Weather dataclass + serializer/deserializer
 │   ├── producers/
-│   │   ├── flight_producer.py            # OpenSky Network → flight-feeds
-│   │   ├── seismic_producer.py           # USGS GeoJSON → earthquake-feeds
-│   │   ├── weather_producer.py           # Open-Meteo grid → weather-feeds
+│   │   ├── flight_producer.py            # OpenSky Network → skypulse.flights
+│   │   ├── seismic_producer.py           # USGS GeoJSON → skypulse.seismic
+│   │   ├── weather_producer.py           # Open-Meteo grid → skypulse.weather
 │   │   └── misc/
 │   │       └── cache.sqlite              # requests-cache for Open-Meteo
 │   ├── consumers/
-│   │   ├── flight_consumer.py            # flight-feeds → public.flights
-│   │   ├── seismic_consumer.py           # earthquake-feeds → public.seismics
-│   │   └── weather_consumer.py          # weather-feeds → public.weather
+│   │   ├── flight_consumer.py            # skypulse.flights → public.flights
+│   │   ├── seismic_consumer.py           # skypulse.seismic → public.seismics
+│   │   └── weather_consumer.py           # skypulse.weather → public.weather
 │   └── jobs/
 │       ├── flight_tumbling.py            # Flink: 5-min flight aggregation
 │       ├── seismic_tumbling.py           # Flink: 5-min seismic aggregation
 │       ├── weather_tumbling.py           # Flink: 5-min weather aggregation
-│       └── flight_context_tumbling.py   # Flink: cross-stream join + grid output
+│       └── flight_context_tumbling.py    # Flink: cross-stream join + grid output
 │
 ├── pipeline/
 │   ├── pipeline.yml                      # Bruin pipeline definition (every 2 min)
@@ -622,7 +720,7 @@ SkyPulse-Streaming-Pipeline/
 │   │   ├── test_bruin.bat
 │   │   └── validate_bruin.bat
 │   ├── tree.py
-│   └── wait_topics.py                   # Polls Redpanda until topics are ready
+│   └── wait_topics.py                    # Polls Redpanda until topics are ready
 │
 └── notebooks/
     ├── flights_producer.ipynb
@@ -637,6 +735,10 @@ SkyPulse-Streaming-Pipeline/
 
 ## Getting Started
 
+There are two ways to run SkyPulse: **fully local** (Flink + Redpanda in Docker, Bruin CLI, Streamlit local server) or **fully cloud** (Redpanda Cloud + Bruin Cloud + Streamlit Cloud). Both modes share the same Supabase infrastructure provisioned via Terraform.
+
+---
+
 ### Prerequisites
 
 | Tool | Version | Notes |
@@ -644,16 +746,19 @@ SkyPulse-Streaming-Pipeline/
 | Python | 3.12 | Managed via `.python-version` |
 | `uv` | latest | [Install](https://docs.astral.sh/uv/getting-started/installation/) |
 | `make` | latest | See note below |
-| Docker + Docker Compose | latest | Required for Redpanda and Flink |
+| Docker + Docker Compose | latest | Required for Flink cluster and containerized producers/consumers |
 | Terraform | >= 1.6 | [Install](https://developer.hashicorp.com/terraform/install) — required for `make infra-deploy` |
-| Bruin CLI | latest | [Install](https://bruin-data.github.io/bruin/getting-started/introduction.html) |
-| Supabase account | - | Free tier is sufficient — access token needed for Terraform |
+| Bruin CLI | latest | [Install](https://bruin-data.github.io/bruin/getting-started/introduction.html) — local mode only; cloud mode uses Bruin Cloud |
+| Supabase account | — | Free tier sufficient — access token needed for Terraform |
+| Redpanda Cloud account | — | Required for cloud mode; free tier sufficient |
 
 > **Installing `make`**
 >
 > - **Linux (Debian/Ubuntu):** `sudo apt install make`
-> - **macOS:** included with Xcode Command Line Tools - run `xcode-select --install`, or via Homebrew: `brew install make`
-> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative - `make` works out of the box inside the Linux subsystem.
+> - **macOS:** included with Xcode Command Line Tools — run `xcode-select --install`, or via Homebrew: `brew install make`
+> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative — `make` works out of the box inside the Linux subsystem.
+
+---
 
 ### Environment Setup
 
@@ -666,27 +771,32 @@ cp .env.example .env
 Required variables:
 
 ```dotenv
-# Redpanda
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+# Redpanda Cloud (or local broker — see mode-specific notes below)
+REDPANDA_SERVER=<your_redpanda_server>:9092          # e.g. seed-xxxx.xxx.redpanda.cloud:9092
+REDPANDA_USERNAME=<your_redpanda_username>
+REDPANDA_PASSWORD=<your_redpanda_password>
 
 # Redpanda topic names
-TOPIC_FLIGHTS=flight-feeds
-TOPIC_SEISMIC=earthquake-feeds
-TOPIC_WEATHER=weather-feeds
-
-# Supabase (PostgreSQL) — auto-populated by make infra-deploy
-SUPABASE_HOST=<your-supabase-host>
-SUPABASE_PORT=5432
-SUPABASE_USER=postgres
-SUPABASE_PASSWORD=<your-password>
-SUPABASE_DATABASE=postgres
+TOPIC_FLIGHTS=skypulse.flights
+TOPIC_SEISMIC=skypulse.seismic
+TOPIC_WEATHER=skypulse.weather
 
 # OpenSky Network (OAuth2)
-OPENSKY_CLIENT_ID=<your-client-id>
-OPENSKY_CLIENT_SECRET=<your-client-secret>
+OPENSKY_CLIENT_ID=<your_opensky_client_id>
+OPENSKY_CLIENT_SECRET=<your_opensky_client_secret>
+USE_AUTH=true             # set to false to use the unauthenticated public API
+
+# Supabase (PostgreSQL) — auto-populated by make infra-deploy
+SUPABASE_HOST=<your_supabase_host>
+SUPABASE_PORT=5432
+SUPABASE_USER=<your_supabase_user>
+SUPABASE_PASSWORD=<your_supabase_password>
+SUPABASE_DATABASE=postgres
 ```
 
-> **Note:** the five `SUPABASE_*` variables are automatically written to `.env` by `migrate.py` at the end of `make infra-deploy`. You only need to fill them in manually if you skip the Terraform provisioning step and point to a pre-existing Supabase project.
+> **`SUPABASE_*` variables** are automatically written to `.env` by `migrate.py` at the end of `make infra-deploy`. You only need to fill them manually if you skip Terraform and point to a pre-existing Supabase project.
+>
+> **`USE_AUTH`** — set to `false` to use the OpenSky anonymous endpoint (rate-limited). Set to `true` to enable OAuth2 authentication with `OPENSKY_CLIENT_ID` + `OPENSKY_CLIENT_SECRET` for higher rate limits.
 
 Install Python dependencies:
 
@@ -694,33 +804,33 @@ Install Python dependencies:
 make install
 ```
 
-### Provision the Supabase Infrastructure
+---
 
-SkyPulse uses Terraform to provision the Supabase project and a Python migration runner to initialize the full schema. A single command handles everything:
+### Provision Supabase Infrastructure (both modes)
+
+Regardless of whether you run locally or in the cloud, the Supabase database must be provisioned first. This step is identical for both modes.
 
 ```bash
 make infra-deploy
 ```
 
-This runs `infra/setup.bat`, which executes the following steps in order:
+This runs `infra/setup.bat`, which executes the following in order:
 
 1. `terraform init` → downloads the `supabase/supabase` provider
 2. `terraform validate` → checks configuration syntax
-3. `terraform plan` → previews the resources to be created
-4. `terraform apply -auto-approve` → provisions the Supabase project in the target region and configures the PostgREST API to expose all four schemas (`public`, `staging`, `intermediate`, `mart`)
-5. `uv run python infra/migrations/migrate.py` → reads Terraform outputs and runs the full migration sequence (see below)
+3. `terraform plan` → previews resources to be created
+4. `terraform apply -auto-approve` → provisions the Supabase project and configures PostgREST to expose all four schemas (`public`, `staging`, `intermediate`, `mart`)
+5. `uv run python infra/migrations/migrate.py` → reads Terraform outputs and runs the full migration sequence
 
 **What the migration runner does (`infra/migrations/migrate.py`):**
 
 | Step | What it does |
 |---|---|
-| **Wait for DB** | Polls the database up to 10 times (15s apart) until it's reachable — Supabase projects take ~1 min to boot after `apply` |
-| **DDL migrations** | Enables PostGIS, creates `staging`/`intermediate`/`mart` schemas, grants `USAGE` to PostgREST roles, and creates all landing tables, tumbling window tables, and performance indexes |
-| **Row Level Security** | Enables RLS on all 26 tables across all schemas; creates `service_role` (full access) and `anon`/`authenticated` (read-only) policies |
+| **Wait for DB** | Polls the database up to 10 times (15s apart) until reachable — Supabase projects take ~1 min to boot |
+| **DDL migrations** | Enables PostGIS, creates all schemas, grants PostgREST roles, creates all landing + tumbling window tables and performance indexes |
+| **Row Level Security** | Enables RLS on all 26 tables; creates `service_role` (full access) and `anon`/`authenticated` (read-only) policies |
 | **Supabase Realtime** | Adds all public tables to the `supabase_realtime` publication |
-| **Patch `.env`** | Writes `SUPABASE_HOST`, `SUPABASE_USER`, `SUPABASE_PASSWORD`, etc. back to the root `.env` automatically |
-
-After `make infra-deploy` completes, the database is fully wired and the `.env` is ready — no manual SQL or copy-pasting of connection strings required.
+| **Patch `.env`** | Writes `SUPABASE_HOST`, `SUPABASE_USER`, `SUPABASE_PASSWORD`, etc. back to `.env` automatically |
 
 **Terraform variables** — create `infra/terraform/terraform.tfvars` (gitignored):
 
@@ -731,93 +841,140 @@ supabase_region       = "us-east-1"
 db_password           = "<a-strong-password>"
 ```
 
-Your Supabase access token is available at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens). The org slug is visible in the URL of your Supabase dashboard.
+Your access token is at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens). The org slug appears in the URL of your Supabase dashboard.
 
-> **Performance indexes.** The migration runner also creates all recommended indexes as part of the initial setup. A second pass after the first Bruin run will create indexes on staging/intermediate tables that don't exist yet at migration time — re-running `migrate.py` is safe, as all statements use `IF NOT EXISTS`. The indexes with the highest impact are:
->
-> - `idx_stg_airports_geog` — GiST index on `staging.stg_airports(geog)` for PostGIS proximity joins
-> - `idx_airport_grid_lookup` — B-tree on `int_airport_grid(grid_lat, grid_lon)` for O(1) grid cell lookup
-> - `idx_stg_flights_grid_computed` — expression index on `FLOOR(latitude*2)/2, FLOOR(longitude*2)/2` matching the exact join key in `int_flights_enriched`
-> - `idx_stg_airlines_country` — partial index on active airlines only, used in the country → airline attribution join
+> **Performance indexes** are created during migration. Re-running `migrate.py` is safe — all statements use `IF NOT EXISTS`. Key indexes: `idx_stg_airports_geog` (GiST for PostGIS joins), `idx_airport_grid_lookup` (B-tree for O(1) grid lookups), `idx_stg_flights_grid_computed` (expression index matching the join key in `int_flights_enriched`), `idx_stg_airlines_country` (partial index on active airlines only).
 
-To tear down the Supabase project completely:
+---
 
-```bash
-make infra-destroy
+### 🖥️ Local Mode
+
+Run the entire stack on your machine: Flink and Redpanda in Docker, Bruin CLI for transformations, and Streamlit local server for the dashboard.
+
+```
+make infra-deploy   # 1. Provision Supabase (run once)
+make deploy         # 2. Start Flink cluster (JobManager + TaskManager) via Docker
+make producers      # 3. Build and run all three producers in a Docker container
+make consumers      # 4. Build and run all three consumers in a Docker container
+make jobs           # 5. Submit all four Flink jobs to the local JobManager
+make run-pipeline   # 6. Run the Bruin transformation pipeline (Bruin CLI)
+make run-app        # 7. Start the Streamlit dashboard at http://localhost:8501
 ```
 
-### Start the Infrastructure
+**Step-by-step details:**
 
-First, provision and initialize Supabase via Terraform:
+**`make deploy`** — builds the PyFlink image and starts the `jobmanager` (Flink UI at `http://localhost:8081`) and `taskmanager` containers. Also starts a local Redpanda instance useful for development without Redpanda Cloud credentials.
 
-```bash
-make infra-deploy
-```
+**`make producers`** — builds `src/Dockerfile.producers` into the `skypulse-producers` image and runs it with `--env-file .env`. All three producers (flights, weather, seismic) run concurrently inside the container, publishing to `REDPANDA_SERVER`.
 
-This creates the Supabase project, runs all migrations, configures RLS and Realtime, and patches the `.env` automatically. See [Provision the Supabase Infrastructure](#provision-the-supabase-infrastructure) above for the full breakdown.
+**`make consumers`** — builds `src/Dockerfile.consumers` into the `skypulse-consumers` image and runs it with `--env-file .env`. All three consumers run concurrently, writing to Supabase.
 
-Then build and start Redpanda and the Flink cluster locally:
+**`make jobs`** — submits all four PyFlink jobs to the running JobManager via `docker exec`. Each job opens in a separate terminal window:
+- `SP-SeismicTumblingJob` → `seismic_tumbling.py`
+- `SP-FlightTumblingJob` → `flight_tumbling.py`
+- `SP-WeatherTumblingJob` → `weather_tumbling.py`
+- `SP-FlightContextTumblingJob` → `flight_context_tumbling.py`
 
-```bash
-make deploy
-```
+**`make run-pipeline`** — runs `scripts/bruin/run_bruin.bat` which executes the full Bruin pipeline locally (Bruin CLI must be installed). Resolves assets in dependency order: `ingestion` → `staging` → `intermediate` → `marts`.
 
-This brings up three containers: `redpanda`, `jobmanager` (Flink UI at `http://localhost:8081`), and `taskmanager`.
+> **Tip:** run `make run-pipeline` once before `make jobs` to populate the static reference tables (`stg_airports`, `stg_airlines`). The `int_flights_enriched` and `mart_flight_activity` assets depend on them for airport proximity lookups and airline attribution.
 
-Create Redpanda topics (or reset existing ones):
+**`make run-app`** — starts the Streamlit dashboard locally via `uv run streamlit run app/app.py`. The app reads Supabase credentials from `.env` via `python-dotenv` and is available at `http://localhost:8501`.
 
-```bash
-make clean-topics
-```
-
-### Run the Streaming Pipeline
-
-Start all producers, consumers, and Flink jobs in one command:
+**Manage topics (local Redpanda):**
 
 ```bash
-make streaming
+make clean-topics   # Delete and recreate skypulse.flights, skypulse.seismic, skypulse.weather
 ```
 
-This executes the following steps in sequence:
-
-1. `make producers` - launches `seismic_producer.py`, `flight_producer.py`, and `weather_producer.py` in separate terminal windows
-2. `make consumers` - launches `seismic_consumer.py`, `flight_consumer.py`, and `weather_consumer.py` in separate terminal windows
-3. `make wait-topics` - polls Redpanda until all three topics have received at least one message
-4. `make jobs` - submits all four Flink jobs to the JobManager via `docker exec`
-
-To run components individually:
-
-```bash
-make producers     # producers only
-make consumers     # consumers only
-make jobs          # Flink jobs only (requires topics to have data)
-```
-
-### Run the Bruin Transformation Pipeline
-
-Bruin orchestrates two distinct responsibilities in this project:
-
-**1. Static reference ingestion** - on first run (or whenever reference data needs refreshing), Bruin fetches OpenFlights data and materializes it into `public.raw_airports`, `public.raw_airlines`, `public.raw_planes`, and `public.raw_routes`. This only needs to run once before the streaming pipeline starts, since this data changes infrequently.
-
-**2. Layered SQL transformations** - scheduled every 2 minutes (`pipeline.yml`), Bruin processes the streaming landing tables through the full `staging → intermediate → mart` model, producing the analytics-ready outputs consumed by downstream dashboards or queries.
-
-Run the full pipeline (both ingestion and transformations):
-
-```bash
-make run-pipeline
-```
-
-Bruin resolves and executes assets in dependency order: `ingestion` → `staging` → `intermediate` → `marts`. On subsequent runs, the static ingestion assets re-materialize their tables (truncate + reload), while the SQL transformation assets read from the latest streaming data in the landing tables.
-
-> **Tip:** run the static ingestion assets once before starting the streaming pipeline. `int_flights_enriched` and `mart_flight_activity` depend on `staging.stg_airports` and `staging.stg_airlines` being populated to perform airport proximity lookups and airline attribution.
-
-### Teardown
+**Teardown:**
 
 ```bash
 make deploy-destroy    # Stop and remove Flink + Redpanda containers
 make postgres-destroy  # Stop and remove the local Postgres container (if used)
 make infra-destroy     # Destroy the Supabase project via Terraform (irreversible)
 ```
+
+---
+
+### ☁️ Cloud Mode
+
+Run producers and Flink locally (Docker), with Redpanda Cloud as the broker, Bruin Cloud for transformations, and Streamlit Cloud for the dashboard.
+
+#### 1. External services setup (one-time)
+
+Before running any `make` commands, set up the three cloud services:
+
+**Redpanda Cloud:**
+- Create a cluster at [cloud.redpanda.com](https://cloud.redpanda.com)
+- Create the three topics manually in the Redpanda Cloud console:
+  - `skypulse.flights`
+  - `skypulse.seismic`
+  - `skypulse.weather`
+- Copy the bootstrap server address and SASL credentials into your `.env` as `REDPANDA_SERVER`, `REDPANDA_USERNAME`, `REDPANDA_PASSWORD`
+
+**Bruin Cloud:**
+- Push the `pipeline/` directory to your Bruin Cloud workspace
+- Create a **Supabase connection** in Bruin Cloud using the `SUPABASE_*` credentials from your `.env` (populated after `make infra-deploy`)
+- Set the following **secret variables** in your Bruin Cloud environment:
+
+  ```
+  SUPABASE_HOST
+  SUPABASE_PORT
+  SUPABASE_USER
+  SUPABASE_PASSWORD
+  SUPABASE_DATABASE
+  ```
+
+> ⚠️ Bruin Cloud will not be able to run the pipeline if the connection and secrets are not configured before the first scheduled run.
+
+**Streamlit Cloud:**
+- Push the `app/` directory (or the full repo) to GitHub and connect it to [share.streamlit.io](https://share.streamlit.io)
+- Set the following **secrets** in the Streamlit Cloud app settings (under *Settings → Secrets*):
+
+  ```toml
+  SUPABASE_HOST = "..."
+  SUPABASE_PORT = "5432"
+  SUPABASE_USER = "..."
+  SUPABASE_PASSWORD = "..."
+  SUPABASE_DATABASE = "postgres"
+  ```
+
+> ⚠️ The Streamlit app will fail to connect to Supabase if these secrets are not set before deployment.
+
+#### 2. Run
+
+```
+make infra-deploy   # 1. Provision Supabase (run once)
+make producers      # 2. Build and run containerized producers → Redpanda Cloud
+make consumers      # 3. Build and run containerized consumers → Supabase
+make jobs           # 4. Submit Flink jobs to the local cluster (make deploy must be running)
+```
+
+The Bruin Cloud pipeline and Streamlit Cloud dashboard run autonomously once configured — no further local commands are needed.
+
+---
+
+### Makefile Reference
+
+| Target | Description |
+|---|---|
+| `make install` | Install all Python dependencies via `uv sync` |
+| `make lint` | Run Ruff + pre-commit on all files |
+| `make infra-deploy` | Provision Supabase via Terraform + run migrations |
+| `make infra-destroy` | Destroy the Supabase project via Terraform (irreversible) |
+| `make deploy` | Build and start Flink cluster + local Redpanda via Docker Compose |
+| `make deploy-destroy` | Stop and remove Flink + Redpanda containers |
+| `make flink` | Build and start Flink cluster via the standalone compose file |
+| `make flink-destroy` | Stop and remove standalone Flink containers |
+| `make postgres` | Start the local Postgres container |
+| `make postgres-destroy` | Stop and remove the local Postgres container |
+| `make clean-topics` | Delete and recreate all three Redpanda topics |
+| `make producers` | Build Docker image and run all three producers |
+| `make consumers` | Build Docker image and run all three consumers |
+| `make jobs` | Submit all four PyFlink jobs to the running JobManager |
+| `make run-pipeline` | Run the full Bruin transformation pipeline (Bruin CLI) |
+| `make run-app` | Start the Streamlit dashboard locally at `http://localhost:8501` |
 
 ---
 

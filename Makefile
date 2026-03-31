@@ -18,7 +18,6 @@ PATH_DEPLOY    		= 	deploy
 PATH_INFRA     		= 	infra
 PATH_SCRIPTS   		= 	scripts
 
-# --- Dev ---
 install:
 	uv sync --all-groups
 
@@ -26,7 +25,6 @@ lint:
 	uv run pre-commit autoupdate
 	cmd /C "set PYTHONIOENCODING=utf-8 && uv run pre-commit run --all-files"
 
-# --- Infrastructure ---
 deploy:
 	docker compose -f $(PATH_DEPLOY)/docker-compose.yml build redpanda jobmanager taskmanager
 	docker compose -f $(PATH_DEPLOY)/docker-compose.yml up redpanda jobmanager taskmanager
@@ -51,7 +49,9 @@ postgres-destroy:
 run-pipeline:
 	scripts\bruin\run_bruin.bat
 
-# --- Streaming layer ---
+run-app:
+	uv run streamlit run app/app.py
+
 clean-topics:
 	docker exec $(REDPANDA_SERVICE) rpk topic delete $(TOPIC_SEISMIC)
 	docker exec $(REDPANDA_SERVICE) rpk topic delete $(TOPIC_FLIGHTS)
@@ -75,7 +75,6 @@ jobs:
 	cmd /C "start "SP-WeatherTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/weather_tumbling.py --pyFiles /opt/src"
 	cmd /C "start "SP-FlightContextTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/flight_context_tumbling.py --pyFiles /opt/src"
 
-# --- Terraform ---
 infra-deploy:
 	infra\setup.bat
 
