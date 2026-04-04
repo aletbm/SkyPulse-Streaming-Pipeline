@@ -1,7 +1,7 @@
 <div align="center">
     <img width=400px src=./assets/images/skypulse_logo.svg>
     <h1> SkyPulse - Streaming Pipeline </h1>
-    <strong>Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data — from raw API feeds to an interactive cloud dashboard.</strong>
+    <strong>Real-time ingestion, processing, and enrichment of global flight, weather, and seismic data - from raw API feeds to an interactive cloud dashboard.</strong>
     <br>
     <br>
     <img src=https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white>
@@ -10,6 +10,7 @@
     <img src=https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white>
     <img src=https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white>
     <img src=https://img.shields.io/badge/Apache%20Flink-E6526F?style=for-the-badge&logo=apacheflink&logoColor=white>
+    <img src=https://img.shields.io/badge/Quix-FF3C3C?style=for-the-badge&logoColor=white>
     <img src=https://img.shields.io/badge/Redpanda-FF3C3C?style=for-the-badge&logo=redpanda&logoColor=white>
     <img src=https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white>
     <img src=https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white>
@@ -33,13 +34,13 @@
 
 ## 💡 About the Project
 
-No single API provides a cross-domain view of global airspace. Fusing flight transponder feeds, atmospheric sensors, and seismic networks — each with different polling frequencies and update semantics — requires more than periodic batch pulls. The real challenge is making the data **useful together in near real-time**: a grid cell with 40 active aircraft, a M5.8 earthquake 200km away, and storm-level wind gusts tells a different operational story than any individual stream alone.
+No single API provides a cross-domain view of global airspace. Fusing flight transponder feeds, atmospheric sensors, and seismic networks - each with different polling frequencies and update semantics - requires more than periodic batch pulls. The real challenge is making the data **useful together in near real-time**: a grid cell with 40 active aircraft, a M5.8 earthquake 200km away, and storm-level wind gusts tells a different operational story than any individual stream alone.
 
 SkyPulse is an end-to-end streaming data pipeline that continuously ingests three independent real-world data streams:
 
-- **Flight positions** — live aircraft states from the [OpenSky Network](https://opensky-network.org/) REST API (ICAO 24-bit transponder data, ~90s polling cadence)
-- **Weather snapshots** — current atmospheric conditions across a global grid of ~500+ points sourced from the [Open-Meteo](https://open-meteo.com/) API (15-min cadence)
-- **Seismic events** — real-time earthquake feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) (60s polling, event-time deduplication)
+- **Flight positions** - live aircraft states from the [OpenSky Network](https://opensky-network.org/) REST API (ICAO 24-bit transponder data, ~90s polling cadence)
+- **Weather snapshots** - current atmospheric conditions across a global grid of ~500+ points sourced from the [Open-Meteo](https://open-meteo.com/) API (15-min cadence)
+- **Seismic events** - real-time earthquake feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) (60s polling, event-time deduplication)
 
 Each stream is independently produced into a Redpanda Cloud (Kafka-compatible) broker, consumed into a Supabase (PostgreSQL) landing zone, and processed by Apache Flink tumbling-window jobs that compute 5-minute aggregates. A Bruin pipeline running in Bruin Cloud then transforms raw landing tables into a layered analytical model (staging → intermediate → marts), producing enriched, cross-stream outputs including a composite geospatial risk score per 10-degree grid cell. A Streamlit dashboard deployed to Streamlit Cloud visualizes all streams live.
 
@@ -64,7 +65,7 @@ The project is designed around three technical goals:
 | **Language** | Python 3.12, SQL |
 | **Dependency Management** | `uv` |
 | **Streaming Broker** | Redpanda Cloud (Kafka-compatible) |
-| **Stream Processing** | Apache Flink 2.2.0 + PyFlink |
+| **Stream Processing** | Apache Flink 2.2.0 + PyFlink, Quix Streams |
 | **Landing & Serving DB** | Supabase (PostgreSQL 18 via `psycopg2`) |
 | **Transformation Pipeline** | Bruin (running in Bruin Cloud) |
 | **Dashboard** | Streamlit (deployed to Streamlit Cloud) |
@@ -103,11 +104,11 @@ infra/
     └── outputs.tf             # project_ref, project_url → consumed by migrate.py
 ```
 
-**Terraform** creates the Supabase project and exposes the `public`, `staging`, `intermediate`, and `mart` schemas through PostgREST. **`migrate.py`** reads those Terraform outputs and sequentially waits for the DB to boot, runs DDL migrations (PostGIS, schemas, tables, indexes), configures RLS on all 26 tables, enables Supabase Realtime, and patches `.env` with the generated credentials — all triggered by a single `make infra-deploy` command.
+**Terraform** creates the Supabase project and exposes the `public`, `staging`, `intermediate`, and `mart` schemas through PostgREST. **`migrate.py`** reads those Terraform outputs and sequentially waits for the DB to boot, runs DDL migrations (PostGIS, schemas, tables, indexes), configures RLS on all 26 tables, enables Supabase Realtime, and patches `.env` with the generated credentials - all triggered by a single `make infra-deploy` command.
 
 > **OS support:** `infra/setup.bat` is the provisioning entrypoint for Windows/WSL. `infra/setup.sh` is provided for Linux and macOS users.
 
-### 1. Ingestion (Producers — Containerized)
+### 1. Ingestion (Producers - Containerized)
 
 Three independent Python producers run continuously in Docker containers and publish JSON-serialized messages to dedicated Redpanda Cloud topics:
 
@@ -124,7 +125,7 @@ Three independent Python producers run continuously in Docker containers and pub
 
 ![producers_demo](./assets/gifs/producers.gif)
 
-### 2. Landing (Consumers → Supabase `public` schema — Containerized)
+### 2. Landing (Consumers → Supabase `public` schema - Containerized)
 
 Three Kafka consumers run in Docker containers and write raw records to Supabase, one per topic:
 
@@ -149,7 +150,11 @@ Flights and weather are upserted (latest known state); seismic events are append
 
 These tables feed the staging layer and power airport proximity enrichment and airline attribution in the intermediate and mart layers.
 
-### 3. Processing (Apache Flink — Tumbling Window Jobs)
+### 3. Processing (Stream Jobs - Tumbling Windows)
+
+The pipeline runs two parallel sets of tumbling-window jobs that produce identical outputs: one implemented with **Apache Flink** (for local and full-featured deployments), and one with **Quix Streams** (optimized for cloud deployment on Railway due to its significantly lower memory footprint).
+
+#### Apache Flink Jobs (`src/jobs/`)
 
 Four PyFlink jobs run inside the Flink cluster (JobManager + TaskManager containers):
 
@@ -160,36 +165,47 @@ Four PyFlink jobs run inside the Flink cluster (JobManager + TaskManager contain
 | `weather_tumbling.py` | `skypulse.weather` | `weather_tumbling` | 5 min event time |
 | `flight_context_tumbling.py` | all three topics | `flight_context` | 5 min PROCTIME |
 
-`flight_context_tumbling.py` is the core cross-stream job. It joins flights, seismic events, and weather readings on a shared 10-degree lat/lon grid cell — a deliberately coarse spatial key that avoids a full cross-join while preserving geographic relevance. Watermarks are set at 30s for seismic (low-latency USGS feed) and 60s for weather (15-min update cycle).
+#### Quix Streams Jobs (`src/jobs/jobs_quix/`)
 
-All jobs write to Supabase via the Flink JDBC connector (`flink-connector-jdbc-postgres`) and enable checkpointing at 10s intervals.
+Four equivalent jobs re-implemented with Quix Streams, deployed to **Railway** as containerized services. Quix's lightweight Python-native runtime consumes significantly less memory than the full Flink cluster (no JVM, no JobManager/TaskManager overhead), making it viable within Railway's free tier limits.
+
+| Job | Input Topic(s) | Output Table | Window |
+|---|---|---|---|
+| `flight_tumbling.py` | `skypulse.flights` | `flights_tumbling` | 5 min tumbling |
+| `seismic_tumbling.py` | `skypulse.seismic` | `seismics_tumbling` | 5 min tumbling |
+| `weather_tumbling.py` | `skypulse.weather` | `weather_tumbling` | 5 min tumbling |
+| `flight_context_tumbling.py` | all three topics | `flight_context` | 5 min tumbling |
+
+`flight_context_tumbling.py` is the core cross-stream job. It joins flights, seismic events, and weather readings on a shared 10-degree lat/lon grid cell - a deliberately coarse spatial key that avoids a full cross-join while preserving geographic relevance. Watermarks are set at 30s for seismic (low-latency USGS feed) and 60s for weather (15-min update cycle).
+
+All Flink jobs write to Supabase via the Flink JDBC connector (`flink-connector-jdbc-postgres`) and enable checkpointing at 10s intervals. Quix jobs write to Supabase via `psycopg2` directly.
 
 ![job](./assets/images/flink_job.png)
 
-### 4. Serving (Bruin Cloud Pipeline — `staging` → `intermediate` → `mart`)
+### 4. Serving (Bruin Cloud Pipeline - `staging` → `intermediate` → `mart`)
 
 The Bruin pipeline (`pipeline.yml`, running in Bruin Cloud, scheduled every 2 minutes) transforms landing tables into three analytical layers:
 
-**Staging** — clean, typed, geo-enriched views of each raw table: PostGIS `geography` columns, continent classification, 10-degree grid cell assignment, WMO weather labels, wind severity bands, and seismic magnitude classification.
+**Staging** - clean, typed, geo-enriched views of each raw table: PostGIS `geography` columns, continent classification, 10-degree grid cell assignment, WMO weather labels, wind severity bands, and seismic magnitude classification.
 
-**Intermediate** — pre-joined tables. `int_airport_grid` builds a spatial lookup grid from `stg_airports`. `int_flights_enriched` joins live flights with the nearest airport and infers flight phase and airline.
+**Intermediate** - pre-joined tables. `int_airport_grid` builds a spatial lookup grid from `stg_airports`. `int_flights_enriched` joins live flights with the nearest airport and infers flight phase and airline.
 
-**Marts** — four analytics-ready tables:
+**Marts** - four analytics-ready tables:
 
-- `mart_flight_activity` — global flight counts by country and continent, enriched with airline metadata and a 2-hour trend window.
-- `mart_weather_conditions` — regional weather aggregates with condition summaries, wind alerts, and temperature trends.
-- `mart_seismic_activity` — seismic statistics by region over 24h, including magnitude distribution and risk classification.
-- `mart_flight_context` — the core cross-stream mart. One row per active 10-degree grid cell, combining Flink window aggregates with live flight phase data and a composite **risk score (0–100)** from airborne density, seismic magnitude, wind severity, and visibility.
+- `mart_flight_activity` - global flight counts by country and continent, enriched with airline metadata and a 2-hour trend window.
+- `mart_weather_conditions` - regional weather aggregates with condition summaries, wind alerts, and temperature trends.
+- `mart_seismic_activity` - seismic statistics by region over 24h, including magnitude distribution and risk classification.
+- `mart_flight_context` - the core cross-stream mart. One row per active 10-degree grid cell, combining Flink window aggregates with live flight phase data and a composite **risk score (0–100)** from airborne density, seismic magnitude, wind severity, and visibility.
 
 ### 5. Dashboard (Streamlit Cloud)
 
 A Streamlit app (`app/`) deployed to Streamlit Cloud connects directly to Supabase via `psycopg2` and renders the full analytical output in an interactive interface. Key views include:
 
-- **Global flight map** — live aircraft positions with altitude, velocity, and flight phase overlays (via PyDeck)
-- **Risk score heatmap** — composite 0–100 risk score per grid cell combining air traffic density, seismic activity, and weather severity
-- **Weather dashboard** — regional weather conditions, wind severity alerts, and precipitation totals
-- **Seismic activity** — real-time earthquake feed with magnitude classification, depth, and tsunami flags
-- **Time-series charts** — 5-minute tumbling window aggregates per region (via Altair)
+- **Global flight map** - live aircraft positions with altitude, velocity, and flight phase overlays (via PyDeck)
+- **Risk score heatmap** - composite 0–100 risk score per grid cell combining air traffic density, seismic activity, and weather severity
+- **Weather dashboard** - regional weather conditions, wind severity alerts, and precipitation totals
+- **Seismic activity** - real-time earthquake feed with magnitude classification, depth, and tsunami flags
+- **Time-series charts** - 5-minute tumbling window aggregates per region (via Altair)
 
 ![live_map](./assets/images/live_map.png)
 ![analytics](./assets/images/analytics.png)
@@ -221,9 +237,99 @@ The Supabase project is fully provisioned via Terraform and migrated via `migrat
 
 ### Bruin Cloud
 
-The Bruin pipeline (`pipeline/`) runs on Bruin Cloud on a 2-minute schedule. It handles static reference data ingestion from OpenFlights, SQL transformations across all four schema layers, and column-level quality checks at every step. No local orchestrator is needed — once the pipeline directory is pushed and the Supabase connection is configured, Bruin Cloud runs autonomously.
+The Bruin pipeline (`pipeline/`) runs on Bruin Cloud on a 2-minute schedule. It handles static reference data ingestion from OpenFlights, SQL transformations across all four schema layers, and column-level quality checks at every step. No local orchestrator is needed - once the pipeline directory is pushed and the Supabase connection is configured, Bruin Cloud runs autonomously.
 
 ![Bruin_assets](./assets/images/bruin_assets.png)
+
+### Oracle Cloud Infrastructure (OCI) - Producers & Consumers
+
+![OCI](./assets/images/oci_banner.png)
+
+Producers and consumers run on a free-tier **Always Free** VM provisioned on Oracle Cloud Infrastructure. Railway was not used for these components because the flight producer fetches data from the [OpenSky Network](https://opensky-network.org/), which blocks requests originating from Railway's shared egress IPs. OCI's Always Free tier provides a stable, dedicated VM with a fixed public IP that is not blocked by OpenSky.
+
+> **Recommended VM:** `VM.Standard.E2.1.Micro` (1 OCPU, 1 GB RAM) - Always Free eligible. Ubuntu 22.04 LTS.
+
+#### Deploying to OCI - Step-by-step
+
+**1. Connect to the VM:**
+
+```bash
+ssh -i ssh-key-2026-04-04.key ubuntu@<your_oci_vm_ip>
+```
+
+Accept the host fingerprint when prompted (`yes`).
+
+**2. Install Docker:**
+
+```bash
+sudo apt update
+sudo apt install -y docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
+
+**3. Reconnect to apply the Docker group:**
+
+```bash
+exit
+ssh -i ssh-key-2026-04-04.key ubuntu@<your_oci_vm_ip>
+```
+
+**4. Create the `.env` file on the VM:**
+
+```bash
+nano .env
+```
+
+Paste the same `.env` content you use locally (Redpanda credentials, OpenSky credentials, Supabase credentials). Save with `Ctrl+O`, exit with `Ctrl+X`.
+
+**5. Run producers and consumers:**
+
+```bash
+docker run -d --restart=always --env-file .env --name producers aletbm/skypulse-producers:latest
+docker run -d --restart=always --env-file .env --name consumers aletbm/skypulse-consumers:latest
+```
+
+The `--restart=always` flag ensures both containers automatically restart after a VM reboot. Logs can be followed with `docker logs -f producers` / `docker logs -f consumers`.
+
+---
+
+### Railway - Quix Stream Jobs
+
+![railway](./assets/images/railway.png)
+
+The Quix Streams jobs are deployed to **Railway** as a containerized service. Quix's Python-native runtime has a significantly smaller memory footprint than a full Flink cluster (no JVM, no JobManager/TaskManager overhead), making it suitable for Railway's resource limits.
+
+> **Why not Flink on Railway?** The full Flink cluster (JobManager + TaskManager) requires several GB of JVM heap to operate stably. Railway's free tier limits make this impractical. The Quix re-implementation of the same four jobs runs comfortably within those limits.
+
+#### Deploying Jobs to Railway - Step-by-step
+
+**1. Create a new project on [Railway](https://railway.app) and add a new service.**
+
+**2. Set the Docker image** to the pre-built jobs image:
+
+```
+aletbm/skypulse-jobs:latest
+```
+
+**3. Add environment variables** in the Railway service settings. Add all the same variables from your `.env`:
+
+```
+REDPANDA_SERVER
+REDPANDA_USERNAME
+REDPANDA_PASSWORD
+TOPIC_FLIGHTS
+TOPIC_SEISMIC
+TOPIC_WEATHER
+SUPABASE_HOST
+SUPABASE_PORT
+SUPABASE_USER
+SUPABASE_PASSWORD
+SUPABASE_DATABASE
+```
+
+**4. Deploy.** Railway will pull the image and start all four Quix jobs. Logs are available directly in the Railway dashboard.
 
 ---
 
@@ -233,13 +339,13 @@ The Bruin pipeline (`pipeline/`) runs on Bruin Cloud on a 2-minute schedule. It 
 
 SkyPulse is a **real-time upsert-heavy pipeline**, which makes columnar cloud DWHs a poor fit for the landing layer. BigQuery Streaming Inserts don't support `ON CONFLICT ... DO UPDATE`, requiring expensive merge jobs or accumulating duplicates. Snowflake and Redshift face the same constraint with high-cadence `MERGE` statements.
 
-Supabase (PostgreSQL) supports native `INSERT ... ON CONFLICT DO UPDATE` with row-level granularity, no per-row cost, and PostGIS for geospatial operations — all essential for continuously updating ~9,000 live aircraft states every 90 seconds.
+Supabase (PostgreSQL) supports native `INSERT ... ON CONFLICT DO UPDATE` with row-level granularity, no per-row cost, and PostGIS for geospatial operations - all essential for continuously updating ~9,000 live aircraft states every 90 seconds.
 
 ### Partitioning & Clustering Equivalent in PostgreSQL
 
 PostgreSQL achieves equivalent performance to BigQuery partitioning/clustering through **partial indexes**, **expression indexes**, **GiST indexes**, and **composite primary keys**.
 
-#### Landing tables — primary key as clustering key
+#### Landing tables - primary key as clustering key
 
 | Table | PK / Unique Key | Query pattern optimized |
 |---|---|---|
@@ -253,13 +359,13 @@ PostgreSQL achieves equivalent performance to BigQuery partitioning/clustering t
 
 #### Key indexes
 
-**`idx_stg_airports_geog`** (GiST) — enables PostGIS `ST_DWithin` nearest-airport lookups in `int_flights_enriched`, pruning the search space to a bounding box instead of scanning all ~7,700 airports.
+**`idx_stg_airports_geog`** (GiST) - enables PostGIS `ST_DWithin` nearest-airport lookups in `int_flights_enriched`, pruning the search space to a bounding box instead of scanning all ~7,700 airports.
 
-**`idx_airport_grid_lookup`** (B-tree on `grid_lat, grid_lon`) — makes each 10-degree grid cell lookup O(1) across the ~500-row airport grid table.
+**`idx_airport_grid_lookup`** (B-tree on `grid_lat, grid_lon`) - makes each 10-degree grid cell lookup O(1) across the ~500-row airport grid table.
 
-**`idx_stg_flights_grid_computed`** (expression index on `FLOOR(lat*2)/2, FLOOR(lon*2)/2`) — matches the computed join key in `int_flights_enriched` exactly, avoiding a full sequential scan on every mart refresh.
+**`idx_stg_flights_grid_computed`** (expression index on `FLOOR(lat*2)/2, FLOOR(lon*2)/2`) - matches the computed join key in `int_flights_enriched` exactly, avoiding a full sequential scan on every mart refresh.
 
-**`idx_stg_airlines_country`** (partial B-tree, `WHERE is_active = TRUE`) — filters out ~40% of inactive carriers at index build time, equivalent to a BigQuery clustered column with a pushed-down filter.
+**`idx_stg_airlines_country`** (partial B-tree, `WHERE is_active = TRUE`) - filters out ~40% of inactive carriers at index build time, equivalent to a BigQuery clustered column with a pushed-down filter.
 
 Additional point-lookup indexes on `iata_code` and `icao_code` for airports and airlines support dashboard-level code resolution joins.
 
@@ -608,6 +714,7 @@ SkyPulse-Streaming-Pipeline/
 ├── src/
 │   ├── Dockerfile.producers              # Container image for all three producers
 │   ├── Dockerfile.consumers              # Container image for all three consumers
+│   ├── Dockerfile.jobs                   # Container image for Quix Streams jobs (Railway)
 │   ├── logger.py                         # Shared structured logger
 │   ├── models/
 │   │   ├── flight.py                     # Flight dataclass + serializer/deserializer
@@ -627,7 +734,12 @@ SkyPulse-Streaming-Pipeline/
 │       ├── flight_tumbling.py            # Flink: 5-min flight aggregation
 │       ├── seismic_tumbling.py           # Flink: 5-min seismic aggregation
 │       ├── weather_tumbling.py           # Flink: 5-min weather aggregation
-│       └── flight_context_tumbling.py    # Flink: cross-stream join + grid output
+│       ├── flight_context_tumbling.py    # Flink: cross-stream join + grid output
+│       └── jobs_quix/                    # Quix Streams equivalents (deployed to Railway)
+│           ├── flight_tumbling.py        # Quix: 5-min flight aggregation
+│           ├── seismic_tumbling.py       # Quix: 5-min seismic aggregation
+│           ├── weather_tumbling.py       # Quix: 5-min weather aggregation
+│           └── flight_context_tumbling.py # Quix: cross-stream join + grid output
 │
 ├── pipeline/
 │   ├── pipeline.yml                      # Bruin pipeline definition (every 2 min)
@@ -660,8 +772,11 @@ SkyPulse-Streaming-Pipeline/
 ├── scripts/
 │   ├── bruin/
 │   │   ├── run_bruin.bat
+│   │   ├── run_bruin.sh
 │   │   ├── test_bruin.bat
-│   │   └── validate_bruin.bat
+│   │   ├── test_bruin.sh
+│   │   ├── validate_bruin.bat
+│   │   └── validate_bruin.sh
 │   ├── tree.py
 │   └── wait_topics.py                    # Polls Redpanda until topics are ready
 │
@@ -690,16 +805,16 @@ There are two ways to run SkyPulse: **fully local** (Flink + Redpanda in Docker,
 | `uv` | latest | [Install](https://docs.astral.sh/uv/getting-started/installation/) |
 | `make` | latest | See note below |
 | Docker + Docker Compose | latest | Required for Flink cluster and containerized producers/consumers |
-| Terraform | >= 1.6 | [Install](https://developer.hashicorp.com/terraform/install) — required for `make infra-deploy` |
-| Bruin CLI | latest | [Install](https://bruin-data.github.io/bruin/getting-started/introduction.html) — local mode only; cloud mode uses Bruin Cloud |
-| Supabase account | — | Free tier sufficient — access token needed for Terraform |
-| Redpanda Cloud account | — | Required for cloud mode; free tier sufficient |
+| Terraform | >= 1.6 | [Install](https://developer.hashicorp.com/terraform/install) - required for `make infra-deploy` |
+| Bruin CLI | latest | [Install](https://bruin-data.github.io/bruin/getting-started/introduction.html) - local mode only; cloud mode uses Bruin Cloud |
+| Supabase account | - | Free tier sufficient - access token needed for Terraform |
+| Redpanda Cloud account | - | Required for cloud mode; free tier sufficient |
 
 > **Installing `make`**
 >
 > - **Linux (Debian/Ubuntu):** `sudo apt install make`
-> - **macOS:** included with Xcode Command Line Tools — run `xcode-select --install`, or via Homebrew: `brew install make`
-> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative — `make` works out of the box inside the Linux subsystem.
+> - **macOS:** included with Xcode Command Line Tools - run `xcode-select --install`, or via Homebrew: `brew install make`
+> - **Windows:** install via [Chocolatey](https://chocolatey.org/) with `choco install make`, or use [GnuWin32](https://gnuwin32.sourceforge.net/packages/make.htm). WSL2 is also a clean alternative - `make` works out of the box inside the Linux subsystem.
 
 ---
 
@@ -714,7 +829,7 @@ cp .env.example .env
 Required variables:
 
 ```dotenv
-# Redpanda Cloud (or local broker — see mode-specific notes below)
+# Redpanda Cloud (or local broker - see mode-specific notes below)
 REDPANDA_SERVER=<your_redpanda_server>:9092          # e.g. seed-xxxx.xxx.redpanda.cloud:9092
 REDPANDA_USERNAME=<your_redpanda_username>
 REDPANDA_PASSWORD=<your_redpanda_password>
@@ -729,7 +844,7 @@ OPENSKY_CLIENT_ID=<your_opensky_client_id>
 OPENSKY_CLIENT_SECRET=<your_opensky_client_secret>
 USE_AUTH=true             # set to false to use the unauthenticated public API
 
-# Supabase (PostgreSQL) — auto-populated by make infra-deploy
+# Supabase (PostgreSQL) - auto-populated by make infra-deploy
 SUPABASE_HOST=<your_supabase_host>
 SUPABASE_PORT=5432
 SUPABASE_USER=<your_supabase_user>
@@ -739,7 +854,7 @@ SUPABASE_DATABASE=postgres
 
 > **`SUPABASE_*` variables** are automatically written to `.env` by `migrate.py` at the end of `make infra-deploy`. You only need to fill them manually if you skip Terraform and point to a pre-existing Supabase project.
 >
-> **`USE_AUTH`** — set to `false` to use the OpenSky anonymous endpoint (rate-limited). Set to `true` to enable OAuth2 authentication with `OPENSKY_CLIENT_ID` + `OPENSKY_CLIENT_SECRET` for higher rate limits.
+> **`USE_AUTH`** - set to `false` to use the OpenSky anonymous endpoint (rate-limited). Set to `true` to enable OAuth2 authentication with `OPENSKY_CLIENT_ID` + `OPENSKY_CLIENT_SECRET` for higher rate limits.
 
 Install Python dependencies:
 
@@ -759,7 +874,7 @@ make infra-deploy
 
 This runs `infra/setup.bat`, which executes `terraform init → validate → plan → apply` to provision the Supabase project, then `migrate.py` to run DDL migrations, enable PostGIS, configure RLS on all 26 tables, enable Supabase Realtime, and patch `.env` with the generated credentials automatically.
 
-**Terraform variables** — create `infra/terraform/terraform.tfvars` (gitignored):
+**Terraform variables** - create `infra/terraform/terraform.tfvars` (gitignored):
 
 ```hcl
 supabase_access_token = "<your-supabase-access-token>"
@@ -770,7 +885,7 @@ db_password           = "<a-strong-password>"
 
 Your access token is at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens).
 
-> **Performance indexes** are created during migration using `IF NOT EXISTS` — re-running `migrate.py` is safe. Key indexes: GiST for PostGIS joins, B-tree for O(1) grid lookups, expression index for the grid join key, and a partial index on active airlines only.
+> **Performance indexes** are created during migration using `IF NOT EXISTS` - re-running `migrate.py` is safe. Key indexes: GiST for PostGIS joins, B-tree for O(1) grid lookups, expression index for the grid join key, and a partial index on active airlines only.
 
 ---
 
@@ -790,23 +905,23 @@ make run-app        # 7. Start the Streamlit dashboard at http://localhost:8501
 
 **Step-by-step details:**
 
-**`make deploy`** — builds the PyFlink image and starts the `jobmanager` (Flink UI at `http://localhost:8081`) and `taskmanager` containers via Docker Compose. Also starts a local Redpanda instance useful for development without Redpanda Cloud credentials. Use `make flink` instead if you want to start only the Flink cluster without a local Redpanda broker (i.e. when pointing to Redpanda Cloud).
+**`make deploy`** - builds the PyFlink image and starts the `jobmanager` (Flink UI at `http://localhost:8081`) and `taskmanager` containers via Docker Compose. Also starts a local Redpanda instance useful for development without Redpanda Cloud credentials. Use `make flink` instead if you want to start only the Flink cluster without a local Redpanda broker (i.e. when pointing to Redpanda Cloud).
 
-**`make producers`** — builds `src/Dockerfile.producers` into the `skypulse-producers` Docker image and runs it with `--env-file .env`. All three producers (flights, weather, seismic) run concurrently inside the container, publishing to `REDPANDA_SERVER`.
+**`make producers`** - builds `src/Dockerfile.producers` into the `skypulse-producers` Docker image and runs it with `--env-file .env`. All three producers (flights, weather, seismic) run concurrently inside the container, publishing to `REDPANDA_SERVER`.
 
-**`make consumers`** — builds `src/Dockerfile.consumers` into the `skypulse-consumers` Docker image and runs it with `--env-file .env`. All three consumers run concurrently inside the container, writing to Supabase.
+**`make consumers`** - builds `src/Dockerfile.consumers` into the `skypulse-consumers` Docker image and runs it with `--env-file .env`. All three consumers run concurrently inside the container, writing to Supabase.
 
-**`make jobs`** — submits all four PyFlink jobs to the running JobManager via `docker exec`. Each job opens in a separate terminal window:
+**`make jobs`** - submits all four PyFlink jobs to the running JobManager via `docker exec`. Each job opens in a separate terminal window:
 - `SP-SeismicTumblingJob` → `seismic_tumbling.py`
 - `SP-FlightTumblingJob` → `flight_tumbling.py`
 - `SP-WeatherTumblingJob` → `weather_tumbling.py`
 - `SP-FlightContextTumblingJob` → `flight_context_tumbling.py`
 
-**`make run-pipeline`** — runs `scripts/bruin/run_bruin.bat` which executes the full Bruin pipeline locally (Bruin CLI must be installed). Resolves assets in dependency order: `ingestion` → `staging` → `intermediate` → `marts`.
+**`make run-pipeline`** - runs `scripts/bruin/run_bruin.bat` which executes the full Bruin pipeline locally (Bruin CLI must be installed). Resolves assets in dependency order: `ingestion` → `staging` → `intermediate` → `marts`.
 
 > **Tip:** run `make run-pipeline` once before `make jobs` to populate the static reference tables (`stg_airports`, `stg_airlines`). The `int_flights_enriched` and `mart_flight_activity` assets depend on them for airport proximity lookups and airline attribution.
 
-**`make run-app`** — starts the Streamlit dashboard locally via `uv run streamlit run app/app.py`. The app reads Supabase credentials from `.env` via `python-dotenv` and is available at `http://localhost:8501`.
+**`make run-app`** - starts the Streamlit dashboard locally via `uv run streamlit run app/app.py`. The app reads Supabase credentials from `.env` via `python-dotenv` and is available at `http://localhost:8501`.
 
 **Manage topics (local Redpanda):**
 
@@ -879,7 +994,9 @@ make consumers      # 4. Build and run containerized consumers → Supabase
 make jobs           # 5. Submit Flink jobs to the running JobManager
 ```
 
-> Producers and consumers run as Docker containers (`skypulse-producers` and `skypulse-consumers` images). The Bruin Cloud pipeline and Streamlit Cloud dashboard run autonomously once configured — no further local commands are needed.
+> Producers and consumers run as Docker containers (`skypulse-producers` and `skypulse-consumers` images). The Bruin Cloud pipeline and Streamlit Cloud dashboard run autonomously once configured - no further local commands are needed.
+>
+> For a fully hands-off cloud deployment, see the **OCI** and **Railway** sections above: deploy producers and consumers to an OCI Always Free VM, and deploy the Quix jobs to Railway instead of running Flink locally.
 
 ---
 
@@ -900,27 +1017,58 @@ make jobs           # 5. Submit Flink jobs to the running JobManager
 | `make clean-topics` | Delete and recreate all three Redpanda topics |
 | `make producers` | Build Docker image and run all three producers |
 | `make consumers` | Build Docker image and run all three consumers |
-| `make jobs` | Submit all four PyFlink jobs to the running JobManager |
+| `make jobs` | Build Docker image and run all four jobs |
 | `make run-pipeline` | Run the full Bruin transformation pipeline (Bruin CLI) |
 | `make run-app` | Start the Streamlit dashboard locally at `http://localhost:8501` |
 
 ---
 
-## Design Decisions & Tradeoffs
+## 🤖 AI Data Analyst (Bruin)
+
+Bruin ships a built-in **AI Data Analyst** that connects directly to the pipeline's data warehouse and answers natural language questions about the data - no SQL knowledge required.
+
+Once configured against the Supabase connection, the analyst can query any table across all four schema layers (landing, staging, intermediate, marts) and return results in plain language, with charts or structured output when appropriate. It understands the pipeline's data model out of the box and can answer questions like:
+
+- *"Which grid cells have the highest risk score right now?"*
+- *"How many flights were airborne in Europe in the last 5-minute window?"*
+- *"Were there any seismic events with magnitude above 5 in the last 24 hours?"*
+- *"What's the average wind speed by region?"*
+
+The analyst can be deployed to multiple interfaces with no additional configuration:
+
+| Interface | Notes |
+|---|---|
+| **WhatsApp** | Connect via the Bruin WhatsApp integration |
+| **Slack** | Add the Bruin bot to any workspace channel |
+| **Discord** | Available via the Bruin Discord bot |
+| **Microsoft Teams** | Supported through the Teams app connector |
+| **Web** | Accessible directly from the Bruin Cloud dashboard |
+
+This makes the pipeline's analytical output accessible to non-technical stakeholders without a dashboard login - anyone with access to the connected channel can ask questions and get live answers from the data.
+
+> Below are screenshots of the AI Data Analyst responding to queries via WhatsApp, pulling live data from the SkyPulse marts:
+
+| Screenshot 1 | Screenshot 2 |
+|:---:|:---:|
+| ![scr1](./assets/images/screenshot_1.jpg) | ![scr2](./assets/images/screenshot_2.jpg) |
+
+---
+
+
 
 ### Why Bruin instead of dbt?
 
-Both tools transform data with SQL and enforce quality checks — but Bruin integrates ingestion, transformation, and validation into a single framework without the need for a separate orchestrator. For a pipeline that already had Python producers and consumers, being able to define ingestion assets (`type: python`) alongside SQL transformation assets (`type: sf.sql`) in the same pipeline.yml, with shared dependency resolution, was a better fit than managing dbt alongside a separate scheduler. Bruin Cloud also removes the need to host an Airflow or Prefect instance for scheduling.
+Both tools transform data with SQL and enforce quality checks - but Bruin integrates ingestion, transformation, and validation into a single framework without the need for a separate orchestrator. For a pipeline that already had Python producers and consumers, being able to define ingestion assets (`type: python`) alongside SQL transformation assets (`type: sf.sql`) in the same pipeline.yml, with shared dependency resolution, was a better fit than managing dbt alongside a separate scheduler. Bruin Cloud also removes the need to host an Airflow or Prefect instance for scheduling.
 
-dbt would have been a valid choice for the transformation layer alone, and its ecosystem (dbt-core, dbt-postgres, packages) is more mature — that's the main tradeoff. For a self-contained capstone where the full stack runs under one `make` command, Bruin's integrated approach won.
+dbt would have been a valid choice for the transformation layer alone, and its ecosystem (dbt-core, dbt-postgres, packages) is more mature - that's the main tradeoff. For a self-contained capstone where the full stack runs under one `make` command, Bruin's integrated approach won.
 
 ### Why PROCTIME for the flight tumbling job instead of event time?
 
-The OpenSky Network's `time_position` field — the timestamp of the last position measurement — is unreliable: it frequently arrives `null` or several minutes stale, depending on receiver coverage. Using event time in this context would produce watermarks that either never advance (blocking window closure) or advance incorrectly (dropping records that arrive late relative to a wrong baseline). Since the goal of the flight tumbling job is to aggregate the current state of airspace — not reconstruct a historical timeline — PROCTIME is the correct semantic: windows close based on when the data arrives at Flink, not when the aircraft was supposedly observed. The seismic and weather jobs use event time because those sources (`event_time` from USGS, `snapshot_ts` from Open-Meteo) provide reliable, source-assigned timestamps.
+The OpenSky Network's `time_position` field - the timestamp of the last position measurement - is unreliable: it frequently arrives `null` or several minutes stale, depending on receiver coverage. Using event time in this context would produce watermarks that either never advance (blocking window closure) or advance incorrectly (dropping records that arrive late relative to a wrong baseline). Since the goal of the flight tumbling job is to aggregate the current state of airspace - not reconstruct a historical timeline - PROCTIME is the correct semantic: windows close based on when the data arrives at Flink, not when the aircraft was supposedly observed. The seismic and weather jobs use event time because those sources (`event_time` from USGS, `snapshot_ts` from Open-Meteo) provide reliable, source-assigned timestamps.
 
 ### Why a 10-degree geographic grid?
 
-A finer grid (e.g. 1°) would produce more granular cross-stream joins but at the cost of sparse matches — most 1° cells would contain zero seismic events and very few flights at any given time, making aggregates meaningless. A coarser grid (e.g. 20°) collapses operationally distinct regions into the same cell. 10 degrees (~1,100 km at the equator) strikes a balance: cells are large enough to contain meaningful co-occurring events from all three streams, and small enough to preserve regional distinctions (North Atlantic vs. Mediterranean, Ring of Fire vs. stable continental plates). It's also computationally cheap as a join key — `FLOOR(lat / 10) * 10` — with no geospatial library required inside Flink.
+A finer grid (e.g. 1°) would produce more granular cross-stream joins but at the cost of sparse matches - most 1° cells would contain zero seismic events and very few flights at any given time, making aggregates meaningless. A coarser grid (e.g. 20°) collapses operationally distinct regions into the same cell. 10 degrees (~1,100 km at the equator) strikes a balance: cells are large enough to contain meaningful co-occurring events from all three streams, and small enough to preserve regional distinctions (North Atlantic vs. Mediterranean, Ring of Fire vs. stable continental plates). It's also computationally cheap as a join key - `FLOOR(lat / 10) * 10` - with no geospatial library required inside Flink.
 
 ---
 

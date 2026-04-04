@@ -61,19 +61,19 @@ clean-topics:
 	docker exec $(REDPANDA_SERVICE) rpk topic create $(TOPIC_WEATHER)
 
 producers:
-	docker build -f src/Dockerfile.producers -t skypulse-producers .
-	docker run --env-file .env -it --rm skypulse-producers
+	docker build -f src/Dockerfile.producers -t aletbm/skypulse-producers:latest .
+	docker push aletbm/skypulse-producers:latest
+	docker run --env-file .env -it --rm aletbm/skypulse-producers:latest
 
 consumers:
-	docker build -f src/Dockerfile.consumers -t skypulse-consumers .
-	docker run --env-file .env -it --rm skypulse-consumers
+	docker build -f src/Dockerfile.consumers -t aletbm/skypulse-consumers:latest .
+	docker push aletbm/skypulse-consumers:latest
+	docker run --env-file .env -it --rm aletbm/skypulse-consumers:latest
 
 #http://localhost:8081
 jobs:
-	cmd /C "start "SP-SeismicTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/seismic_tumbling.py --pyFiles /opt/src"
-	cmd /C "start "SP-FlightTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/flight_tumbling.py --pyFiles /opt/src"
-	cmd /C "start "SP-WeatherTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/weather_tumbling.py --pyFiles /opt/src"
-	cmd /C "start "SP-FlightContextTumblingJob" docker exec -it $(JOB_MANAGER) ./bin/flink run -py /opt/$(PATH_JOBS)/flight_context_tumbling.py --pyFiles /opt/src"
+	docker build -f src/Dockerfile.jobs -t aletbm/skypulse-jobs:latest .
+	docker push aletbm/skypulse-jobs:latest
 
 infra-deploy:
 	infra\setup.bat

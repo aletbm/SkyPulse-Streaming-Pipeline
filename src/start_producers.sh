@@ -2,9 +2,13 @@
 
 echo "🚀 Starting 3 producers..."
 
-uv run python src/producers/flight_producer.py &
-uv run python src/producers/seismic_producer.py &
-uv run python src/producers/weather_producer.py &
+source .venv/bin/activate
+
+python src/producers/flight_producer.py &
+sleep 1
+python src/producers/seismic_producer.py &
+sleep 1
+python src/producers/weather_producer.py &
 
 echo "✅ All processes started"
 

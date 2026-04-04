@@ -2,22 +2,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Instalar uv con pip
 RUN pip install --no-cache-dir uv
 
-# Copiar archivos de dependencias
 COPY pyproject.toml uv.lock .python-version ./
 
-# Instalar dependencias con uv
-RUN uv sync --locked
+RUN uv sync --only-group producers --locked
 
-# Copiar el resto del código
 COPY src/producers/ ./src/producers/
 COPY src/models/ ./src/models/
 COPY src/logger.py ./src/logger.py
 COPY src/start_producers.sh ./start.sh
 
-# Permisos script
 RUN chmod +x start.sh
 
 ENV PYTHONUNBUFFERED=1
@@ -29,3 +24,5 @@ CMD ["./start.sh"]
 
 #docker tag skypulse aletbm/skypulse:latest
 #docker push aletbm/skypulse:1.0.0
+
+#docker run -d --restart=always --env-file .env --name producers aletbm/skypulse-producers:latest
