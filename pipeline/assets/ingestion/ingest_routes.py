@@ -48,7 +48,9 @@ columns:
 
 import csv
 import io
+import os
 
+import psycopg2
 import requests
 
 URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
@@ -65,8 +67,29 @@ def null_int(v):
         return None
 
 
+def already_populated(table: str) -> bool:
+    conn = psycopg2.connect(
+        host=os.environ["SUPABASE_HOST"],
+        port=os.environ["SUPABASE_PORT"],
+        user=os.environ["SUPABASE_USER"],
+        password=os.environ["SUPABASE_PASSWORD"],
+        dbname=os.environ["SUPABASE_DATABASE"],
+    )
+    try:
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) FROM {table}")
+        count = cur.fetchone()[0]
+        return count > 0
+    except psycopg2.errors.UndefinedTable:
+        return False
+    finally:
+        conn.close()
+
+
 def materialize():
-    print("Downloading routes...")
+    if already_populated("public.raw_routes"):
+        print("Table already populated, skipping.")
+        return []
 
     r = requests.get(URL, timeout=30)
     r.raise_for_status()

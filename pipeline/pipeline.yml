@@ -4,3 +4,11 @@ start_date: "2026-01-01"
 
 default_parameters:
   connection: supabase
+
+default:
+  secrets:
+    - key: SUPABASE_HOST
+    - key: SUPABASE_PORT
+    - key: SUPABASE_USER
+    - key: SUPABASE_PASSWORD
+    - key: SUPABASE_DATABASE
