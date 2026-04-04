@@ -300,7 +300,7 @@ with tab_live:
 
     _live_data_fragment()
 
-    @st.fragment(run_every=30)
+    @st.fragment(run_every=refresh_rate)
     def _seismic_pulse_fragment():
         base_layers = st.session_state.get("_base_layers", [])
         seismics = st.session_state.get("_seismics_map", pd.DataFrame())
