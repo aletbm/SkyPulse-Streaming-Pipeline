@@ -21,10 +21,8 @@ from fetchers import (
     fetch_seismic_by_region,
     fetch_seismic_trend,
     fetch_seismics,
-    fetch_seismics_map,
     fetch_top_airlines,
     fetch_top_airports,
-    fetch_top_countries,
     fetch_top_countries_full,
     fetch_weather,
 )
@@ -88,8 +86,8 @@ with st.sidebar:
     st.divider()
     refresh_rate = st.select_slider(
         "Auto-refresh (seconds)",
-        options=[10, 15, 30, 60, 120],
-        value=15,
+        options=[30, 60, 120, 240, 480],
+        value=120,
     )
     st.divider()
     st.markdown(
@@ -129,14 +127,16 @@ with tab_live:
             kpis = fetch_kpis()
             flights = fetch_flights()
             seismics = fetch_seismics()
-            seismics_map = fetch_seismics_map()
             weather = fetch_weather()
             airports = fetch_airports()
             routes = fetch_active_routes() if show_routes else pd.DataFrame()
+            seismics = fetch_seismics()
+            seismics_map = seismics.head(10).copy()
         except Exception as e:
             st.error(f"Database connection error: {e}")
             return
 
+        st.session_state["_flights"] = flights
         st.session_state["_seismics"] = seismics
         st.session_state["_seismics_map"] = seismics_map
 
@@ -411,12 +411,19 @@ with tab_live:
         try:
             trend_df = fetch_flight_trend()
             seis_trend = fetch_seismic_trend()
-            top_countries = fetch_top_countries()
-            flights = fetch_flights()
-            seismics = fetch_seismics()
+            top_countries_full = fetch_top_countries_full()
+            top_countries = top_countries_full[
+                ["origin_country", "total_flights"]
+            ].head(12)
+            top_countries.columns = ["origin_country", "flights"]
         except Exception as e:
             st.error(f"Error: {e}")
             return
+
+        st.session_state["_top_countries_full"] = top_countries_full
+
+        flights = st.session_state.get("_flights", pd.DataFrame())
+        seismics = st.session_state.get("_seismics", pd.DataFrame())
 
         col_left, col_mid, col_right = st.columns([2, 2, 1.5])
 
@@ -546,15 +553,20 @@ with tab_live:
 
 with tab_analytics:
 
-    @st.fragment(run_every=60)
+    @st.fragment(run_every=refresh_rate)
     def analytics_tab():
         try:
-            top_countries_full = fetch_top_countries_full()
+            top_countries_full = st.session_state.get(
+                "_top_countries_full", pd.DataFrame()
+            )
+            if top_countries_full.empty:
+                top_countries_full = fetch_top_countries_full()
             top_airlines = fetch_top_airlines()
             top_airports = fetch_top_airports()
             seis_regions = fetch_seismic_by_region()
             phase_df = fetch_flight_phase_breakdown()
             country_flights = fetch_country_flight_counts()
+
         except Exception as e:
             st.error(f"Database error: {e}")
             return

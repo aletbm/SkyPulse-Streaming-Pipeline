@@ -2,8 +2,10 @@ import pandas as pd
 import streamlit as st
 from database import query
 
+TIME_REFRESH = 120
 
-@st.cache_data(ttl=15)
+
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_flights() -> pd.DataFrame:
     df = query("""
         SELECT
@@ -55,7 +57,7 @@ def fetch_flights() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_seismics() -> pd.DataFrame:
     df = query("""
         SELECT
@@ -105,56 +107,7 @@ def fetch_seismics() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(ttl=30)
-def fetch_seismics_map() -> pd.DataFrame:
-    df = query("""
-        SELECT
-            id, mag, place, lat, lon, depth,
-            event_time, tsunami,
-            CASE
-                WHEN mag >= 7   THEN 'Major'
-                WHEN mag >= 5   THEN 'Strong'
-                WHEN mag >= 3   THEN 'Moderate'
-                ELSE 'Minor'
-            END AS mag_class
-        FROM public.seismics
-        WHERE lat IS NOT NULL AND lon IS NOT NULL
-        ORDER BY event_time DESC
-        LIMIT 10
-    """)
-    if df.empty:
-        return df
-    df["mag"] = pd.to_numeric(df["mag"], errors="coerce").fillna(0)
-    df["radius"] = df["mag"].apply(
-        lambda m: max(25_000, int((10 ** (-2.44 + 0.59 * m)) * 1_000 * 8))
-    )
-    df["color"] = df["mag"].apply(
-        lambda m: (
-            [255, 0, 85, 130]
-            if m >= 7
-            else [255, 107, 53, 90]
-            if m >= 5
-            else [255, 200, 50, 50]
-            if m >= 3
-            else [255, 220, 100, 10]
-        )
-    )
-    df["tooltip"] = df.apply(
-        lambda r: (
-            f"M{r['mag']:.1f} — {r['place']} | depth {r['depth']:.0f}km"
-            + (
-                f" | {pd.to_datetime(r['event_time']).strftime('%Y-%m-%d %H:%M UTC')}"
-                if pd.notna(r["event_time"])
-                else ""
-            )
-            + (" ⚠ TSUNAMI" if r["tsunami"] else "")
-        ),
-        axis=1,
-    )
-    return df
-
-
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_weather() -> pd.DataFrame:
     df = query("""
         SELECT
@@ -177,7 +130,7 @@ def fetch_weather() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_kpis() -> dict:
     kpis = {}
     r = query("SELECT COUNT(*) AS n FROM public.flights WHERE latitude IS NOT NULL")
@@ -204,7 +157,7 @@ def fetch_kpis() -> dict:
     return kpis
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_flight_trend() -> pd.DataFrame:
     return query("""
         SELECT
@@ -218,7 +171,7 @@ def fetch_flight_trend() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_seismic_trend() -> pd.DataFrame:
     return query("""
         SELECT
@@ -232,19 +185,7 @@ def fetch_seismic_trend() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=60)
-def fetch_top_countries() -> pd.DataFrame:
-    return query("""
-        SELECT origin_country, COUNT(*) AS flights
-        FROM public.flights
-        WHERE origin_country IS NOT NULL
-        GROUP BY origin_country
-        ORDER BY flights DESC
-        LIMIT 12
-    """)
-
-
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_active_routes() -> pd.DataFrame:
     df = query("""
         SELECT DISTINCT ON (r.origin_code, r.destination_code)
@@ -318,7 +259,7 @@ def fetch_airports() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_risk_grid() -> pd.DataFrame:
     return query("""
         SELECT
@@ -337,7 +278,7 @@ def fetch_risk_grid() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_altitude_scatter() -> pd.DataFrame:
     return query("""
         SELECT
@@ -356,7 +297,7 @@ def fetch_altitude_scatter() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_continent_breakdown() -> pd.DataFrame:
     return query("""
         SELECT
@@ -371,7 +312,7 @@ def fetch_continent_breakdown() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_top_countries_full() -> pd.DataFrame:
     return query("""
         SELECT
@@ -388,7 +329,7 @@ def fetch_top_countries_full() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_top_airlines() -> pd.DataFrame:
     return query("""
         SELECT
@@ -405,7 +346,7 @@ def fetch_top_airlines() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_top_airports() -> pd.DataFrame:
     return query("""
         SELECT
@@ -423,7 +364,7 @@ def fetch_top_airports() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_seismic_by_region() -> pd.DataFrame:
     return query("""
         SELECT
@@ -443,7 +384,7 @@ def fetch_seismic_by_region() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_flight_phase_breakdown() -> pd.DataFrame:
     return query("""
         SELECT
@@ -457,7 +398,7 @@ def fetch_flight_phase_breakdown() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=TIME_REFRESH)
 def fetch_country_flight_counts() -> pd.DataFrame:
     return query("""
         SELECT origin_country, COUNT(*) AS flights

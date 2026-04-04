@@ -4,3 +4,4 @@
 # Docs: https://getbruin.com/docs/bruin/assets/python
 
 requests
+psycopg2-binary>=2.9.11
