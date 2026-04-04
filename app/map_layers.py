@@ -100,6 +100,105 @@ def build_live_deck(
                 pickable=False,
             )
         )
+        layers.append(
+            pdk.Layer(
+                "HeatmapLayer",
+                data=weather,
+                get_position=["lon", "lat"],
+                get_weight="weight",
+                radius_pixels=250,
+                intensity=1.2,
+                threshold=0.01,
+                color_range=[
+                    [0, 50, 150, 0],
+                    [0, 100, 200, 40],
+                    [100, 0, 200, 80],
+                    [180, 0, 255, 120],
+                ],
+                pickable=False,
+            )
+        )
+
+        # --- Nueva: temperatura (heatmap azul→rojo) ---
+        temp_data = weather.copy()
+        # normaliza -30°C..+50°C → 0..1
+        temp_data["temp_weight"] = (temp_data["temperature_c"].clip(-30, 50) + 30) / 80
+        layers.append(
+            pdk.Layer(
+                "HeatmapLayer",
+                id="weather-temp",
+                data=temp_data,
+                get_position=["lon", "lat"],
+                get_weight="temp_weight",
+                radius_pixels=300,
+                intensity=0.8,
+                threshold=0.01,
+                opacity=0.35,  # suave para no tapar vuelos
+                color_range=[
+                    [0, 100, 255, 0],  # frío → azul
+                    [0, 200, 200, 40],
+                    [255, 200, 0, 80],
+                    [255, 80, 0, 110],  # caliente → rojo
+                ],
+                pickable=False,
+            )
+        )
+
+        # --- Nueva: visibilidad baja (heatmap gris-blanco) ---
+        low_vis = weather[
+            weather["vis_weight"] > 0.1
+        ].copy()  # solo donde hay niebla/nube
+        if not low_vis.empty:
+            layers.append(
+                pdk.Layer(
+                    "HeatmapLayer",
+                    id="weather-visibility",
+                    data=low_vis,
+                    get_position=["lon", "lat"],
+                    get_weight="vis_weight",
+                    radius_pixels=200,
+                    intensity=1.0,
+                    threshold=0.05,
+                    opacity=0.4,
+                    color_range=[
+                        [200, 220, 255, 0],
+                        [200, 220, 255, 60],
+                        [220, 230, 255, 120],
+                        [240, 245, 255, 180],  # blanco-azulado para niebla
+                    ],
+                    pickable=False,
+                )
+            )
+
+        rain = weather[weather["precipitation_mm"] > 0.1].copy()
+        if not rain.empty:
+            rain["precip_radius"] = (
+                rain["precipitation_mm"].clip(0, 20) / 20 * 80000 + 15000
+            ).astype(int)
+            rain["precip_color"] = rain["precipitation_mm"].apply(
+                lambda mm: (
+                    [0, 150, 255, 160]
+                    if mm < 5
+                    else [0, 80, 255, 190]
+                    if mm < 15
+                    else [0, 0, 200, 220]
+                )
+            )
+            layers.append(
+                pdk.Layer(
+                    "ScatterplotLayer",
+                    id="weather-precip",
+                    data=rain,
+                    get_position=["lon", "lat"],
+                    get_radius="precip_radius",
+                    get_fill_color="precip_color",
+                    get_line_color=[0, 100, 255, 100],
+                    line_width_min_pixels=1,
+                    stroked=True,
+                    filled=True,
+                    pickable=False,
+                )
+            )
 
     if show_density and not flights.empty:
         density_data = flights[["lon", "lat"]].copy()

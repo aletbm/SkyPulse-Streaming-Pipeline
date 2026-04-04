@@ -5,7 +5,7 @@ from database import query
 TIME_REFRESH = 120
 
 
-@st.cache_data(ttl=TIME_REFRESH)
+@st.cache_data(ttl=TIME_REFRESH // 2)
 def fetch_flights() -> pd.DataFrame:
     df = query("""
         SELECT
@@ -112,9 +112,8 @@ def fetch_weather() -> pd.DataFrame:
     df = query("""
         SELECT
             latitude AS lat, longitude AS lon,
-            region_name, temperature_c, windspeed_ms,
-            windgusts_ms, visibility_m, weathercode,
-            precipitation_mm
+            windspeed_ms, temperature_c,
+            visibility_m, precipitation_mm
         FROM public.weather
         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
         LIMIT 2000
@@ -126,35 +125,46 @@ def fetch_weather() -> pd.DataFrame:
     df["visibility_m"] = pd.to_numeric(df["visibility_m"], errors="coerce").fillna(
         10000
     )
+    df["precipitation_mm"] = pd.to_numeric(
+        df["precipitation_mm"], errors="coerce"
+    ).fillna(0)
     df["weight"] = df["windspeed_ms"].clip(0, 40) / 40
+    df["vis_weight"] = 1 - df["visibility_m"].clip(0, 10000) / 10000
     return df
 
 
 @st.cache_data(ttl=TIME_REFRESH)
 def fetch_kpis() -> dict:
-    kpis = {}
-    r = query("SELECT COUNT(*) AS n FROM public.flights WHERE latitude IS NOT NULL")
-    kpis["flights"] = int(r.iloc[0]["n"]) if not r.empty else 0
-
     r = query("""
-        SELECT COUNT(*) AS n FROM public.seismics
-        WHERE event_time >= NOW() - INTERVAL '24 hours'
+        SELECT
+            (SELECT COUNT(*)
+              FROM public.flights
+              WHERE latitude IS NOT NULL)
+              AS flights,
+            (SELECT COUNT(*)
+              FROM public.seismics
+              WHERE event_time >= NOW() - INTERVAL '24 hours')
+              AS seismics_24h,
+            (SELECT MAX(mag)
+              FROM public.seismics
+              WHERE event_time >= NOW() - INTERVAL '24 hours')
+              AS max_mag,
+            (SELECT MAX(windgusts_ms)
+              FROM public.weather)
+              AS max_wind,
+            (SELECT MAX(risk_score)
+              FROM mart.mart_flight_context
+              WHERE window_end >= NOW() - INTERVAL '10 minutes')
+              AS risk_score
     """)
-    kpis["seismics_24h"] = int(r.iloc[0]["n"]) if not r.empty else 0
-
-    r = query("""SELECT MAX(mag) AS m FROM public.seismics
-        WHERE event_time >= NOW() - INTERVAL '24 hours'""")
-    kpis["max_mag"] = float(r.iloc[0]["m"]) if not r.empty and r.iloc[0]["m"] else 0.0
-
-    r = query("SELECT MAX(windgusts_ms) AS w FROM public.weather")
-    kpis["max_wind"] = float(r.iloc[0]["w"]) if not r.empty and r.iloc[0]["w"] else 0.0
-
-    r = query("""SELECT MAX(risk_score) AS rs FROM mart.mart_flight_context
-        WHERE window_end >= NOW() - INTERVAL '10 minutes'""")
-    kpis["risk_score"] = (
-        float(r.iloc[0]["rs"]) if not r.empty and r.iloc[0]["rs"] else 0.0
-    )
-    return kpis
+    row = r.iloc[0] if not r.empty else {}
+    return {
+        "flights": int(row.get("flights", 0) or 0),
+        "seismics_24h": int(row.get("seismics_24h", 0) or 0),
+        "max_mag": float(row.get("max_mag", 0) or 0),
+        "max_wind": float(row.get("max_wind", 0) or 0),
+        "risk_score": float(row.get("risk_score", 0) or 0),
+    }
 
 
 @st.cache_data(ttl=TIME_REFRESH)
@@ -185,7 +195,7 @@ def fetch_seismic_trend() -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=TIME_REFRESH)
+@st.cache_data(ttl=3600)
 def fetch_active_routes() -> pd.DataFrame:
     df = query("""
         SELECT DISTINCT ON (r.origin_code, r.destination_code)
