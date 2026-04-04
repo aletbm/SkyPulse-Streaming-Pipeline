@@ -399,8 +399,18 @@ with tab_live:
         )
     with leg_col4:
         st.markdown(
-            """<span style='color:#7b61ff;font-size:12px;font-family:monospace'>
-            ▓ Wind heatmap</span>""",
+            """<span style='color:#7b61ff;font-size:12px;
+            font-family:monospace'>
+            ▓ Wind</span>
+            <span style='color:#ff5000;font-size:12px;
+            font-family:monospace;margin-left:8px'>
+            ▓ Temperature</span>
+            <span style='color:#e0f0ff;font-size:12px;
+            font-family:monospace;margin-left:8px'>
+            ▓ Low visibility</span>
+            <span style='color:#0096ff;font-size:12px;
+            font-family:monospace;margin-left:8px'>
+            ◉ Precipitation</span>""",
             unsafe_allow_html=True,
         )
 
