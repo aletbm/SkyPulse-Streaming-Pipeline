@@ -6,6 +6,13 @@ connection: supabase
 materialization:
   type: table
 
+secrets:
+  - key: SUPABASE_HOST
+  - key: SUPABASE_PORT
+  - key: SUPABASE_USER
+  - key: SUPABASE_PASSWORD
+  - key: SUPABASE_DATABASE
+
 columns:
 
   - name: airport_id

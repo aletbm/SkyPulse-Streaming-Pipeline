@@ -18,7 +18,7 @@ load_dotenv()
 
 DAY_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 HOUR_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
-INTERVAL = 60
+INTERVAL = 900
 SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
 REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
 REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")

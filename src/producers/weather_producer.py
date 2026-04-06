@@ -21,7 +21,7 @@ SERVER = os.getenv("REDPANDA_SERVER", "localhost:9092")
 REDPANDA_USERNAME = os.getenv("REDPANDA_USERNAME", "")
 REDPANDA_PASSWORD = os.getenv("REDPANDA_PASSWORD", "")
 TOPIC_NAME = os.getenv("TOPIC_WEATHER", "weather-feeds")
-INTERVAL = 600
+INTERVAL = 3600
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 
